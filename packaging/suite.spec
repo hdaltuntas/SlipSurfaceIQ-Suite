@@ -1,13 +1,17 @@
 # -*- mode: python ; coding: utf-8 -*-
 """PyInstaller spec for the native PySide6 single-file desktop executable."""
+from pathlib import Path
+
 from PyInstaller.utils.hooks import collect_data_files, collect_submodules
+
+PROJECT_ROOT = Path(SPECPATH).parent
 
 hiddenimports = collect_submodules("slipsurface")
 datas = collect_data_files("slipsurface.spwa", includes=["*.json"])
 
 a = Analysis(
-    ["main.py"],
-    pathex=["."],
+    [str(PROJECT_ROOT / "main.py")],
+    pathex=[str(PROJECT_ROOT)],
     binaries=[],
     datas=datas,
     hiddenimports=hiddenimports,
