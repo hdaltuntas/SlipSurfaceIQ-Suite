@@ -3,8 +3,9 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QApplication  # noqa: E402
-from slipsurface.desktop.app import MainWindow, _conditions_match  # noqa: E402
+from PySide6.QtWidgets import QApplication
+
+from slipsurface.desktop.app import MainWindow, _conditions_match
 
 
 def test_visibility_predicates():
