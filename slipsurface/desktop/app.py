@@ -132,6 +132,23 @@ def _pretty_result(result: dict) -> str:
     return "\n\n".join(parts)
 
 
+
+def _table_key(app_key: str, schema_name: str) -> str:
+    """Map schema tab names to the module-specific project-data keys."""
+    if schema_name == "soil":
+        return "soil_profile"
+    if schema_name == "lab":
+        return "lab_data"
+    if schema_name == "types":
+        return "reinforcement_types"
+    if app_key == "correlation":
+        return {"spt": "spt_tests", "cpt": "cpt_tests", "vs": "vs_tests"}.get(
+            schema_name, schema_name
+        )
+    if app_key == "kinematic" and schema_name == "screening":
+        return "joints"
+    return schema_name
+
 class TaskSignals(QObject):
     finished = Signal(object, object)
 
@@ -343,15 +360,10 @@ class ModulePage(QWidget):
             self.conditional.append((group_box, None, group))
             column.addWidget(group_box)
         if "columns" in section:
-            if name == "screening" and self.key == "kinematic":
-                data_key = "joints"
-                initial = self.data.get(data_key, section.get("joints", []))
-            else:
-                data_key = {
-                    "soil": "soil_profile", "lab": "lab_data",
-                    "types": "reinforcement_types"
-                }.get(name, name)
-                initial = self.data.get(data_key, section.get("rows", []))
+            data_key = _table_key(self.key, name)
+            initial = self.data.get(
+                data_key, section.get("joints", section.get("rows", []))
+            )
             table = DataTable(section, initial)
             self.tables[data_key] = table
             column.addWidget(table)

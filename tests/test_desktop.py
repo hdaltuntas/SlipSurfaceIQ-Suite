@@ -5,7 +5,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QApplication
 
-from slipsurface.desktop.app import MainWindow, _conditions_match
+from slipsurface.desktop.app import MainWindow, _conditions_match, _table_key
 
 
 def test_visibility_predicates():
@@ -27,3 +27,12 @@ def test_bearing_page_loads_in_native_shell():
         assert app.styleSheet()
     finally:
         window.close()
+
+
+def test_module_table_key_mapping():
+    assert _table_key("correlation", "spt") == "spt_tests"
+    assert _table_key("correlation", "vs") == "vs_tests"
+    assert _table_key("liquefaction", "spt") == "spt"
+    assert _table_key("msew", "types") == "reinforcement_types"
+    assert _table_key("bearing", "soil") == "soil_profile"
+    assert _table_key("kinematic", "screening") == "joints"
