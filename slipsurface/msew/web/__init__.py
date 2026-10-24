@@ -1,4 +1,6 @@
-"""slipsurface.msew.web — the local interface, driven from the browser."""
-from .server import serve
+"""Legacy namespace retained for local in-process analysis sessions.
 
-__all__ = ["serve"]
+HTTP server handlers are intentionally not included in SlipSurfaceIQ Suite.
+"""
+
+__all__ = []
