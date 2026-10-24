@@ -34,6 +34,7 @@ include = ["slipsurface*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]
+addopts = "--import-mode=importlib"
 markers = ["desktop: GUI tests requiring a Qt offscreen platform"]
 
 [tool.ruff]
