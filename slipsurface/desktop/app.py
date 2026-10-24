@@ -1,0 +1,682 @@
+"""Native, single-window PySide6 shell for the Python geotechnical engines.
+
+No HTTP server, QWebEngine, browser content or JavaScript is used. Existing
+module session adapters run in-process; results and figures remain local.
+"""
+from __future__ import annotations
+
+import argparse
+import copy
+import importlib
+import json
+import logging
+import sys
+from pathlib import Path
+
+from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
+from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtWidgets import (
+    QApplication, QCheckBox, QComboBox, QDoubleSpinBox, QFileDialog,
+    QFormLayout, QGroupBox, QHBoxLayout, QHeaderView, QLabel, QLineEdit,
+    QListWidget, QListWidgetItem, QMainWindow, QMessageBox, QPushButton,
+    QScrollArea, QSplitter, QTabWidget, QTableWidget, QTableWidgetItem,
+    QTextEdit, QVBoxLayout, QWidget,
+)
+
+from slipsurface import APP_NAME, __version__
+from slipsurface.apps import APPS, get
+
+LOG = logging.getLogger(__name__)
+
+LIGHT = """
+QWidget { background: #f6f8fc; color: #19263a; font-size: 12px; }
+QMainWindow, QSplitter, QScrollArea, QTabWidget::pane { background: #f6f8fc; }
+QMenuBar, QMenu { background: #ffffff; color: #19263a; }
+QMenuBar::item:selected, QMenu::item:selected { background: #dce8fc; color: #10203c; }
+QPushButton { background: #ecf2fb; color: #152743; border: 1px solid #b9c8db;
+              border-radius: 5px; padding: 7px 13px; }
+QPushButton:hover { background: #d4e4fb; }
+QPushButton:disabled { color: #7d8997; background: #e8ecf2; }
+QLineEdit, QDoubleSpinBox, QComboBox, QTableWidget, QTextEdit {
+    color: #162537; background: #ffffff; border: 1px solid #c3cddb;
+    border-radius: 4px; padding: 3px;
+}
+QListWidget { color: #1a2941; background: #edf2f9; border: none; }
+QListWidget::item { padding: 9px; }
+QListWidget::item:selected { color: #ffffff; background: #225eaa; }
+QHeaderView::section { background: #e7edf7; color: #1a2941; padding: 5px; }
+QTabBar::tab { background: #e7edf6; color: #283b54; padding: 8px 12px; }
+QTabBar::tab:selected { background: #ffffff; color: #12549f; }
+QGroupBox { border: 1px solid #cbd5e3; border-radius: 5px; margin-top: 14px;
+            padding-top: 8px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; }
+QToolTip { background: white; color: #19263a; }
+"""
+
+DARK = """
+QWidget { background: #1a2331; color: #e8eef8; font-size: 12px; }
+QMainWindow, QSplitter, QScrollArea, QTabWidget::pane { background: #1a2331; }
+QMenuBar, QMenu { background: #242f41; color: #edf3fa; }
+QMenuBar::item:selected, QMenu::item:selected { background: #385277; color: white; }
+QPushButton { background: #2d405b; color: #eff5fc; border: 1px solid #4b6383;
+              border-radius: 5px; padding: 7px 13px; }
+QPushButton:hover { background: #40608a; }
+QPushButton:disabled { color: #8a9bac; background: #2a3544; }
+QLineEdit, QDoubleSpinBox, QComboBox, QTableWidget, QTextEdit {
+    color: #f1f5fb; background: #243247; border: 1px solid #4b607b;
+    border-radius: 4px; padding: 3px;
+}
+QListWidget { color: #e6eef8; background: #222f41; border: none; }
+QListWidget::item { padding: 9px; }
+QListWidget::item:selected { color: white; background: #2f609b; }
+QHeaderView::section { background: #314158; color: #edf3fa; padding: 5px; }
+QTabBar::tab { background: #2a3c52; color: #dbe6f4; padding: 8px 12px; }
+QTabBar::tab:selected { background: #405b7e; color: white; }
+QGroupBox { border: 1px solid #4b607b; border-radius: 5px; margin-top: 14px;
+            padding-top: 8px; font-weight: 600; }
+QGroupBox::title { subcontrol-origin: margin; left: 10px; }
+QToolTip { background: #30415a; color: white; }
+"""
+
+
+def _conditions_match(record: dict, values: dict) -> bool:
+    """Interpret the three versions of existing schema visibility conditions."""
+    shapes = record.get("shapes")
+    if shapes and values.get("shape") not in shapes:
+        return False
+    when = record.get("when") or []
+    if isinstance(when, dict):
+        when = [{"key": key, "in": allowed} for key, allowed in when.items()]
+    for condition in when:
+        if not isinstance(condition, dict):
+            continue
+        accepted = condition.get("in", [])
+        if values.get(condition.get("key")) not in accepted:
+            return False
+    return True
+
+
+def _pretty_result(result: dict) -> str:
+    if not isinstance(result, dict):
+        return str(result)
+    parts = []
+    for name in ("headline", "text", "summary", "fs_text"):
+        value = result.get(name)
+        if value:
+            parts.append(value if isinstance(value, str)
+                         else json.dumps(value, ensure_ascii=False, indent=2, default=str))
+    for name in ("warnings", "error"):
+        value = result.get(name)
+        if value:
+            parts.append(f"{name.upper()}: {value}")
+    if not parts:
+        parts.append(json.dumps(result, ensure_ascii=False, indent=2, default=str)[:20000])
+    return "\n\n".join(parts)
+
+
+class TaskSignals(QObject):
+    finished = Signal(object, object)
+
+
+class AnalysisTask(QRunnable):
+    def __init__(self, operation):
+        super().__init__()
+        self.operation = operation
+        self.signals = TaskSignals()
+
+    def run(self):
+        try:
+            self.signals.finished.emit(self.operation(), None)
+        except Exception as error:
+            LOG.exception("Module analysis failed")
+            self.signals.finished.emit(None, str(error))
+
+
+class DataTable(QWidget):
+    """Editable row-oriented model tables, independent of legacy web widgets."""
+
+    def __init__(self, specification: dict, rows: list, parent=None):
+        super().__init__(parent)
+        self.columns = specification.get("columns", [])
+        self.table = QTableWidget(self)
+        self.table.setColumnCount(len(self.columns))
+        self.table.setHorizontalHeaderLabels([
+            str(c.get("label", c.get("key", ""))) for c in self.columns
+        ])
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table.horizontalHeader().setStretchLastSection(True)
+        self.table.setMinimumHeight(230)
+        add = QPushButton("+ Row")
+        remove = QPushButton("− Row")
+        add.clicked.connect(lambda: self.table.insertRow(self.table.rowCount()))
+        remove.clicked.connect(self.remove_selected)
+        bar = QHBoxLayout()
+        bar.addWidget(add)
+        bar.addWidget(remove)
+        bar.addStretch()
+        layout = QVBoxLayout(self)
+        note = specification.get("note")
+        if note:
+            label = QLabel(str(note))
+            label.setWordWrap(True)
+            layout.addWidget(label)
+        layout.addWidget(self.table)
+        layout.addLayout(bar)
+        self.set_rows(rows)
+
+    def remove_selected(self):
+        row = self.table.currentRow()
+        if row >= 0:
+            self.table.removeRow(row)
+
+    def set_rows(self, rows: list):
+        self.table.setRowCount(0)
+        for row in rows:
+            index = self.table.rowCount()
+            self.table.insertRow(index)
+            if not isinstance(row, dict):
+                continue
+            for col, specification in enumerate(self.columns):
+                key = specification.get("key", "")
+                value = row.get(key, "")
+                item = QTableWidgetItem("" if value is None else str(value))
+                self.table.setItem(index, col, item)
+
+    def rows(self) -> list[dict]:
+        result = []
+        for index in range(self.table.rowCount()):
+            row = {}
+            for col, specification in enumerate(self.columns):
+                key = specification.get("key", "")
+                if not key:
+                    continue
+                item = self.table.item(index, col)
+                text = item.text().strip() if item else ""
+                kind = specification.get("kind", "text")
+                if kind == "number":
+                    if text:
+                        try:
+                            row[key] = float(text.replace(",", "."))
+                        except ValueError as exc:
+                            raise ValueError(f"Row {index + 1}: {key} must be numeric") from exc
+                    else:
+                        row[key] = 0.0
+                elif kind == "check":
+                    row[key] = text.lower() in ("true", "1", "yes", "evet")
+                else:
+                    row[key] = text
+            result.append(row)
+        return result
+
+
+class ModulePage(QWidget):
+    """One analysis module and its editable state in the shared main window."""
+
+    def __init__(self, key: str, language: str, parent=None):
+        super().__init__(parent)
+        self.key = key
+        self.language = language
+        adapter = importlib.import_module(f"slipsurface.{key}.web.session")
+        self.session = adapter.Session() if key == "kinematic" else adapter.Session(lang=language)
+        if key == "kinematic":
+            self.session.set_language(language)
+            forms = importlib.import_module("slipsurface.kinematic.forms")
+            self.metadata = {"schema": forms.schema(), "defaults": forms.defaults(),
+                             "figures": ["main"]}
+        else:
+            self.metadata = self.session.meta()
+        self.data = copy.deepcopy(self.metadata["defaults"])
+        self.fields = {}
+        self.tables = {}
+        self.conditional = []
+        self.busy = False
+        self.last_result = None
+        self._task = None
+
+        root = QVBoxLayout(self)
+        toolbar = QHBoxLayout()
+        title = QLabel(get(key).tr if language == "tr" else get(key).name)
+        title.setStyleSheet("font-size: 19px; font-weight: 650;")
+        toolbar.addWidget(title)
+        toolbar.addStretch()
+        self.mode = None
+        if key == "kinematic":
+            self.mode = QComboBox()
+            self.mode.addItems(["screening", "planar", "wedge", "toppling"])
+            toolbar.addWidget(self.mode)
+        self.run_button = QPushButton("Hesapla" if language == "tr" else "Analyze")
+        self.run_button.clicked.connect(self.analyze)
+        toolbar.addWidget(self.run_button)
+        root.addLayout(toolbar)
+
+        work = QSplitter(Qt.Horizontal)
+        self.input_tabs = QTabWidget()
+        self.input_tabs.setDocumentMode(True)
+        self._build_input_tabs()
+        work.addWidget(self.input_tabs)
+
+        right = QTabWidget()
+        self.result_text = QTextEdit()
+        self.result_text.setReadOnly(True)
+        right.addTab(self.result_text, "Sonuçlar" if language == "tr" else "Results")
+        plot_panel = QWidget()
+        figure_layout = QVBoxLayout(plot_panel)
+        figure_bar = QHBoxLayout()
+        self.figure_choice = QComboBox()
+        self.figure_choice.currentIndexChanged.connect(self.refresh_plot)
+        figure_bar.addWidget(self.figure_choice, 1)
+        plot_button = QPushButton("Grafiği yenile" if language == "tr" else "Refresh figure")
+        plot_button.clicked.connect(self.refresh_plot)
+        figure_bar.addWidget(plot_button)
+        figure_layout.addLayout(figure_bar)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        self.plot_label = QLabel("Run an analysis to see figures.")
+        self.plot_label.setAlignment(Qt.AlignCenter)
+        self.plot_label.setMinimumHeight(400)
+        scroll.setWidget(self.plot_label)
+        figure_layout.addWidget(scroll)
+        right.addTab(plot_panel, "Grafikler" if language == "tr" else "Figures")
+        work.addWidget(right)
+        work.setStretchFactor(0, 6)
+        work.setStretchFactor(1, 5)
+        root.addWidget(work, 1)
+        self._update_visibility()
+
+    def _build_input_tabs(self):
+        schema = self.metadata.get("schema", {})
+        for name, specification in schema.items():
+            if name == "study_vars":
+                continue
+            if name == "equilibrium" and self.key == "kinematic":
+                for mode, section in specification.items():
+                    self._add_section(f"Equilibrium · {mode}", section, mode)
+                continue
+            if isinstance(specification, dict):
+                self._add_section(name.replace("_", " ").title(), specification, name)
+
+    def _add_section(self, title: str, section: dict, name: str):
+        page = QWidget()
+        wrapper = QScrollArea()
+        wrapper.setWidgetResizable(True)
+        wrapper.setWidget(page)
+        column = QVBoxLayout(page)
+        for group in section.get("groups", []):
+            group_box = QGroupBox(group.get("title", "Inputs"))
+            form = QFormLayout(group_box)
+            for field in group.get("fields", []):
+                key = field.get("key")
+                if not key:
+                    continue
+                value = self.data.get(key, field.get("default"))
+                widget = self._field_widget(field, value)
+                label = QLabel(field.get("label", key))
+                label.setWordWrap(True)
+                unit = field.get("unit", "")
+                box = QWidget()
+                line = QHBoxLayout(box)
+                line.setContentsMargins(0, 0, 0, 0)
+                line.addWidget(widget, 1)
+                if unit:
+                    line.addWidget(QLabel(str(unit)))
+                form.addRow(label, box)
+                self.fields.setdefault(key, []).append((widget, name))
+                self.conditional.append((label, box, field))
+            self.conditional.append((group_box, None, group))
+            column.addWidget(group_box)
+        if "columns" in section:
+            if name == "screening" and self.key == "kinematic":
+                data_key = "joints"
+                initial = self.data.get(data_key, section.get("joints", []))
+            else:
+                data_key = {
+                    "soil": "soil_profile", "lab": "lab_data",
+                    "types": "reinforcement_types"
+                }.get(name, name)
+                initial = self.data.get(data_key, section.get("rows", []))
+            table = DataTable(section, initial)
+            self.tables[data_key] = table
+            column.addWidget(table)
+        column.addStretch(1)
+        self.input_tabs.addTab(wrapper, title)
+
+    def _field_widget(self, field: dict, value):
+        kind = field.get("kind", "number")
+        if kind == "check":
+            widget = QCheckBox()
+            widget.setChecked(bool(value))
+            widget.toggled.connect(self._update_visibility)
+        elif kind == "select":
+            widget = QComboBox()
+            for option in field.get("options", []):
+                widget.addItem(str(option.get("label", option.get("value", ""))),
+                               option.get("value"))
+            index = widget.findData(value)
+            if index >= 0:
+                widget.setCurrentIndex(index)
+            widget.currentIndexChanged.connect(self._update_visibility)
+        elif kind == "number":
+            widget = QDoubleSpinBox()
+            lower = field.get("min")
+            upper = field.get("max")
+            widget.setRange(float(lower) if lower is not None else -1e12,
+                            float(upper) if upper is not None else 1e12)
+            widget.setDecimals(max(0, min(10, int(field.get("decimals", 3)))))
+            widget.setSingleStep(float(field.get("step") or 0.1))
+            widget.setValue(float(value or 0))
+            widget.valueChanged.connect(self._update_visibility)
+        else:
+            widget = QLineEdit(str(value or ""))
+            widget.textChanged.connect(self._update_visibility)
+        return widget
+
+    @staticmethod
+    def _read_widget(widget):
+        if isinstance(widget, QDoubleSpinBox):
+            return widget.value()
+        if isinstance(widget, QCheckBox):
+            return widget.isChecked()
+        if isinstance(widget, QComboBox):
+            return widget.currentData()
+        return widget.text()
+
+    def current_values(self) -> dict:
+        values = copy.deepcopy(self.data)
+        active_mode = self.mode.currentText() if self.mode else None
+        for key, widgets in self.fields.items():
+            # Fields may occur in multiple kinematic modes. Prefer current mode.
+            chosen = widgets[0][0]
+            if active_mode:
+                matching = [w for w, section in widgets if section.endswith(active_mode)]
+                if matching:
+                    chosen = matching[-1]
+            values[key] = self._read_widget(chosen)
+        for key, table in self.tables.items():
+            values[key] = table.rows()
+        return values
+
+    def _update_visibility(self, *_):
+        if not hasattr(self, "conditional"):
+            return
+        values = copy.deepcopy(self.data)
+        for key, widgets in self.fields.items():
+            if widgets:
+                values[key] = self._read_widget(widgets[0][0])
+        for label, field, specification in self.conditional:
+            visible = _conditions_match(specification, values)
+            label.setVisible(visible)
+            if field is not None:
+                field.setVisible(visible)
+
+    def apply_values(self, values: dict):
+        self.data = copy.deepcopy(values)
+        for key, widgets in self.fields.items():
+            if key not in values:
+                continue
+            for widget, _ in widgets:
+                value = values[key]
+                if isinstance(widget, QDoubleSpinBox):
+                    widget.setValue(float(value or 0))
+                elif isinstance(widget, QCheckBox):
+                    widget.setChecked(bool(value))
+                elif isinstance(widget, QComboBox):
+                    index = widget.findData(value)
+                    if index >= 0:
+                        widget.setCurrentIndex(index)
+                else:
+                    widget.setText(str(value or ""))
+        for key, table in self.tables.items():
+            table.set_rows(values.get(key, []))
+        self._update_visibility()
+
+    def analyze(self):
+        if self.busy:
+            return
+        try:
+            values = self.current_values()
+        except ValueError as error:
+            QMessageBox.warning(self, "Invalid input", str(error))
+            return
+        self.data = copy.deepcopy(values)
+        self.busy = True
+        self.run_button.setEnabled(False)
+        self.result_text.setPlainText("Hesaplanıyor…" if self.language == "tr"
+                                      else "Calculating…")
+
+        def operation():
+            if self.key == "kinematic":
+                mode = self.mode.currentText()
+                return self.session.screen(values) if mode == "screening" else \
+                    self.session.equilibrium(mode, values)
+            return self.session.analyse(values)
+
+        self._task = AnalysisTask(operation)
+        self._task.signals.finished.connect(self._on_analysis_finished)
+        QThreadPool.globalInstance().start(self._task)
+
+    def _on_analysis_finished(self, result, error):
+        self.busy = False
+        self.run_button.setEnabled(True)
+        self._task = None
+        if error:
+            self.result_text.setPlainText("Analysis failed:\n" + error)
+            QMessageBox.warning(self, "Analysis error", error)
+            return
+        if isinstance(result, dict) and result.get("ok") is False:
+            self.result_text.setPlainText(str(result.get("error", "Analysis not completed")))
+            return
+        self.last_result = result
+        self.result_text.setPlainText(_pretty_result(result))
+        figures = result.get("figures", []) if isinstance(result, dict) else []
+        if not figures:
+            figures = self.metadata.get("figures", [])
+        if isinstance(figures, dict):
+            figures = list(figures)
+        self.figure_choice.blockSignals(True)
+        self.figure_choice.clear()
+        labels = self.metadata.get("figure_labels", {})
+        for figure in figures:
+            if isinstance(figure, str):
+                self.figure_choice.addItem(str(labels.get(figure, figure)), figure)
+        self.figure_choice.blockSignals(False)
+        self.refresh_plot()
+
+    def refresh_plot(self, *_):
+        kind = self.figure_choice.currentData()
+        if not kind or self.last_result is None:
+            return
+        try:
+            if self.key in {"wall", "correlation"}:
+                data = self.session.plot(kind)
+            elif self.key == "kinematic":
+                target = "screening" if self.mode.currentText() == "screening" else "equilibrium"
+                data = self.session.plot(target, kind)
+            else:
+                data = self.session.plot("analysis", kind)
+            pixmap = QPixmap()
+            if not pixmap.loadFromData(data, "PNG"):
+                raise ValueError("Invalid PNG returned from analysis")
+            self.plot_label.setPixmap(pixmap.scaledToWidth(min(1000, pixmap.width()),
+                                                           Qt.SmoothTransformation))
+        except Exception as error:
+            LOG.exception("Unable to draw figure")
+            self.plot_label.setText(str(error))
+
+    def save_project(self, path: str):
+        values = self.current_values()
+        if self.key == "kinematic":
+            payload = {"format": "slipsurface-kinematic-suite", "values": values}
+        else:
+            payload = self.session.project_file(values)
+        with open(path, "w", encoding="utf-8") as stream:
+            json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
+        self.data = copy.deepcopy(values)
+
+    def open_project(self, path: str):
+        with open(path, encoding="utf-8") as stream:
+            payload = json.load(stream)
+        if self.key == "kinematic":
+            if payload.get("format") != "slipsurface-kinematic-suite":
+                raise ValueError("Not a Kinematic Suite project")
+            values = payload["values"]
+        else:
+            loaded = self.session.load_project(payload)
+            if loaded.get("ok") is False:
+                raise ValueError(str(loaded.get("error")))
+            values = loaded["values"]
+        if not isinstance(values, dict):
+            raise ValueError("Project contents are invalid")
+        self.apply_values(values)
+
+    def export_pdf(self, path: str):
+        if self.last_result is None:
+            raise ValueError("First run an analysis")
+        if self.key == "kinematic":
+            kind = "screening" if self.mode.currentText() == "screening" else "equilibrium"
+            self.session.report(kind, path)
+        else:
+            self.session.report("pdf", path)
+
+
+class MainWindow(QMainWindow):
+    def __init__(self, language="tr", theme="light", initial_app="bearing"):
+        super().__init__()
+        self.language = language
+        self.theme = theme
+        self.pages = {}
+        self.setWindowTitle(f"{APP_NAME}  ·  {__version__}")
+        self.resize(1480, 900)
+        self.setMinimumSize(950, 600)
+        self._create_actions()
+        layout = QSplitter(Qt.Horizontal)
+        self.navigator = QListWidget()
+        self.navigator.setMinimumWidth(180)
+        self.navigator.setMaximumWidth(285)
+        for app in APPS:
+            item = QListWidgetItem(app.tr if language == "tr" else app.name)
+            item.setData(Qt.UserRole, app.key)
+            item.setToolTip(app.description)
+            self.navigator.addItem(item)
+        self.navigator.currentItemChanged.connect(self._navigate)
+        layout.addWidget(self.navigator)
+        self.view = QTabWidget()
+        self.view.setTabsClosable(False)
+        layout.addWidget(self.view)
+        layout.setStretchFactor(1, 1)
+        self.setCentralWidget(layout)
+        self.statusBar().showMessage("Ready")
+        self.set_theme(theme)
+        matching = next((i for i in range(self.navigator.count()) if
+                         self.navigator.item(i).data(Qt.UserRole) == initial_app), 0)
+        self.navigator.setCurrentRow(matching)
+
+    def _create_actions(self):
+        file_menu = self.menuBar().addMenu("Dosya" if self.language == "tr" else "File")
+        actions = [
+            ("Yeni" if self.language == "tr" else "New", self.new_project, "Ctrl+N"),
+            ("Aç…" if self.language == "tr" else "Open…", self.open_project, "Ctrl+O"),
+            ("Kaydet…" if self.language == "tr" else "Save…", self.save_project, "Ctrl+S"),
+            ("PDF aktar…" if self.language == "tr" else "Export PDF…", self.export_pdf, "Ctrl+E"),
+        ]
+        for title, callback, shortcut in actions:
+            action = QAction(title, self)
+            action.setShortcut(shortcut)
+            action.triggered.connect(callback)
+            file_menu.addAction(action)
+        file_menu.addSeparator()
+        exit_action = QAction("Çıkış" if self.language == "tr" else "Exit", self)
+        exit_action.triggered.connect(self.close)
+        file_menu.addAction(exit_action)
+        view = self.menuBar().addMenu("Görünüm" if self.language == "tr" else "View")
+        theme_action = QAction("Aydınlık / Karanlık" if self.language == "tr"
+                               else "Light / Dark", self)
+        theme_action.triggered.connect(
+            lambda: self.set_theme("dark" if self.theme == "light" else "light"))
+        view.addAction(theme_action)
+
+    def set_theme(self, theme: str):
+        self.theme = "dark" if theme == "dark" else "light"
+        QApplication.instance().setStyleSheet(DARK if self.theme == "dark" else LIGHT)
+        for page in self.pages.values():
+            if hasattr(page.session, "set_theme"):
+                page.session.set_theme(self.theme)
+
+    def _navigate(self, current, _):
+        if current is None:
+            return
+        key = current.data(Qt.UserRole)
+        if key not in self.pages:
+            try:
+                page = ModulePage(key, self.language)
+                if hasattr(page.session, "set_theme"):
+                    page.session.set_theme(self.theme)
+            except Exception as error:
+                LOG.exception("Failed to load module %s", key)
+                QMessageBox.critical(self, "Module load error", f"{key}: {error}")
+                return
+            self.pages[key] = page
+            self.view.addTab(page, get(key).name)
+        self.view.setCurrentWidget(self.pages[key])
+        self.statusBar().showMessage(f"Module: {get(key).name}")
+
+    def current_page(self):
+        widget = self.view.currentWidget()
+        return widget if isinstance(widget, ModulePage) else None
+
+    def new_project(self):
+        page = self.current_page()
+        if page:
+            page.apply_values(copy.deepcopy(page.metadata["defaults"]))
+
+    def open_project(self):
+        page = self.current_page()
+        if not page:
+            return
+        filename, _ = QFileDialog.getOpenFileName(self, "Open project", "",
+                                                   "JSON projects (*.json);;All files (*)")
+        if filename:
+            try:
+                page.open_project(filename)
+                self.statusBar().showMessage(f"Opened: {filename}")
+            except Exception as error:
+                QMessageBox.warning(self, "Could not open project", str(error))
+
+    def save_project(self):
+        page = self.current_page()
+        if not page:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Save project", f"{page.key}-project.json", "JSON projects (*.json)")
+        if filename:
+            try:
+                page.save_project(filename)
+                self.statusBar().showMessage(f"Saved: {filename}")
+            except Exception as error:
+                QMessageBox.warning(self, "Could not save project", str(error))
+
+    def export_pdf(self):
+        page = self.current_page()
+        if not page:
+            return
+        filename, _ = QFileDialog.getSaveFileName(
+            self, "Export PDF", f"{page.key}-report.pdf", "PDF files (*.pdf)")
+        if filename:
+            try:
+                page.export_pdf(filename)
+                self.statusBar().showMessage(f"PDF exported: {filename}")
+            except Exception as error:
+                QMessageBox.warning(self, "Could not export PDF", str(error))
+
+
+def main(argv=None) -> int:
+    parser = argparse.ArgumentParser(description="SlipSurfaceIQ Suite native PySide6 desktop")
+    parser.add_argument("--lang", choices=("tr", "en"), default="tr")
+    parser.add_argument("--theme", choices=("light", "dark"), default="light")
+    parser.add_argument("--app", choices=[a.key for a in APPS], default="bearing")
+    args = parser.parse_args(argv)
+    app = QApplication.instance() or QApplication(sys.argv[:1])
+    app.setStyle("Fusion")
+    app.setApplicationName(APP_NAME)
+    window = MainWindow(args.lang, args.theme, args.app)
+    window.show()
+    return app.exec()
