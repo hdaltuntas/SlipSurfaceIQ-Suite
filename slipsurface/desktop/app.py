@@ -11,7 +11,6 @@ import importlib
 import json
 import logging
 import sys
-from pathlib import Path
 
 from PySide6.QtCore import QObject, QRunnable, QThreadPool, Qt, Signal
 from PySide6.QtGui import QAction, QPixmap
