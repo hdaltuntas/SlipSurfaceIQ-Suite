@@ -3,13 +3,16 @@ name: Build Windows desktop package
 on:
   workflow_dispatch:
   push:
-    branches: [main]
+    branches: [main, feat/pyside6-native-suite]
     paths:
       - "slipsurface/**"
       - "main.py"
       - "pyproject.toml"
       - "packaging/**"
       - ".github/workflows/windows-package.yml"
+
+permissions:
+  contents: write
 
 jobs:
   build:
@@ -39,3 +42,16 @@ jobs:
           name: SlipSurfaceIQ-Suite-Windows-candidate
           path: dist/SlipSurfaceIQ-Suite.exe
           if-no-files-found: error
+
+      - name: Publish Windows beta when merged to main
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "v0.1.0-beta.$($env:GITHUB_RUN_NUMBER)"
+          gh release create $tag "dist/SlipSurfaceIQ-Suite.exe" `
+            --prerelease `
+            --target "$env:GITHUB_SHA" `
+            --title "SlipSurfaceIQ Suite $tag (Windows beta)" `
+            --notes "Pre-release Windows x64 desktop candidate. Native Python/PySide6 with ten geotechnical modules (LE excluded). Numerical validation and end-user acceptance are still required."
