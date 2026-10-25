@@ -132,6 +132,22 @@ def test_updater_carries_the_download_url(tmp_path=None):
     assert AppUpdate("pile", "1.0.0", "1.0.0").update_available is False
 
 
+def test_download_reads_file_urls(tmp_path=None):
+    archive_path = Path(tmp_path or ".") / "pile-1.0.9.zip"
+    archive_path.write_bytes(_archive_bytes(_manifest(version="1.0.9")))
+    data = installer.download(archive_path.resolve().as_uri())
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        manifest = json.loads(archive.read("release/app.json"))
+    assert manifest["version"] == "1.0.9"
+    # Full offline flow: catalogue record -> real download -> install.
+    installed = install_release(
+        {"key": "pile", "version": "1.0.9", "url": archive_path.resolve().as_uri(),
+         "requires_core": ">=0.1.0"},
+        apps_root=Path(tmp_path or ".") / "apps",
+    )
+    assert installed["version"] == "1.0.9"
+
+
 def run_all():
     import tempfile
 
