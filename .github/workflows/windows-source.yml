@@ -1,0 +1,49 @@
+name: Windows native Python source checks
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  windows-source:
+    name: Windows / Python 3.12 / PySide6
+    runs-on: windows-latest
+    timeout-minutes: 35
+    env:
+      QT_QPA_PLATFORM: offscreen
+      MPLBACKEND: Agg
+      PYTHONUTF8: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python source dependencies
+        run: python -m pip install -r requirements-dev.txt
+      - name: Compile Python modules
+        run: python -m compileall -q main.py slipsurface tests
+      - name: Validate Python style
+        run: ruff check main.py slipsurface/apps.py slipsurface/desktop tests
+      - name: Run complete numerical and UI regressions
+        run: python -m pytest -q
+      - name: Smoke-test source entry and native module navigator
+        shell: pwsh
+        run: |
+          python main.py --help
+          @'
+          from PySide6.QtWidgets import QApplication
+          from slipsurface.apps import catalogue
+          from slipsurface.desktop.app import MainWindow
+          app = QApplication([])
+          window = MainWindow("tr", "light")
+          assert window.current_page() is None
+          for module in catalogue():
+              window.open_module(module.key)
+              assert window.current_page().key == module.key
+              window.show_home()
+          print("Source-only Windows Qt smoke test passed")
+          window.close()
+          '@ | python -
