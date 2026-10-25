@@ -11,6 +11,7 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 
 from PySide6.QtWidgets import QApplication
 
+from slipsurface.apps import APPS
 from slipsurface.desktop.app import MainWindow
 
 
@@ -34,13 +35,18 @@ def capture() -> None:
         window.show()
         if window.current_page() is not None or len(window.home.cards) != 10:
             raise RuntimeError("Home dashboard did not appear with ten module cards")
-        _capture(window, output, f"native-pyside6-home-{theme}.png", app)
-
-        # Exercise the same user-facing route as clicking a module card.
-        window.home.cards["bearing"].launch_button.click()
-        if window.current_page() is None or window.current_page().key != "bearing":
-            raise RuntimeError("Bearing module could not be opened from its card")
-        _capture(window, output, f"native-pyside6-bearing-{theme}.png", app)
+        _capture(window, output, f"native        module_dir = output / "modules"
+        module_dir.mkdir(exist_ok=True)
+        for module in APPS:
+            window.open_module(module.key)
+            page = window.current_page()
+            if page is None or page.key != module.key:
+                raise RuntimeError(f"Module {module.key} failed to open")
+            _capture(window, module_dir, f"{module.key}-{theme}.png", app)
+            if module.key == "bearing":
+                _capture(window, output, f"native-pyside6-bearing-{theme}.png", app)
+            window.show_home()
+yside6-bearing-{theme}.png", app)
         window.close()
         app.processEvents()
 

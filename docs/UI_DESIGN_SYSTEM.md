@@ -71,3 +71,42 @@ engineering benchmark validation is still required for design-critical work.
 
 These changes must not alter underlying numerical algorithms without benchmark
 tests and engineering review.
+
+
+## Module workspace migration — completed in registry order
+
+The same native PySide6 framework now includes a localized contextual input
+guide, engineering-specific primary section, typed data grids and structured
+result summary for every listed module. Engine calculations are unchanged.
+
+| Order | Module | Primary editor | Specialized native action |
+| --- | --- | --- | --- |
+| 1 | Kinematic | Kinematic screening / failure mode | Screening, planar/wedge/toppling selection |
+| 2 | Rock | Intact-rock inputs | Hoek–Brown summary |
+| 3 | Bearing | Footing geometry / loading | Bearing factor-of-safety summary |
+| 4 | Settle | Foundation / consolidation | Settlement indicators |
+| 5 | Correlation | SPT/CPT/laboratory tests | Export projects to Settle and Bearing |
+| 6 | Liquefaction | Site and earthquake data | SPT/CPT assessment |
+| 7 | Pile | Pile geometry | Separate rock-socket calculation |
+| 8 | SPWA | Retaining structure | Soil and anchor tables |
+| 9 | MSEW | Wall geometry | Generate reinforcement layers with confirmation |
+| 10 | Wall | Retaining-wall geometry | Suggest preliminary dimensions |
+
+All ten screens share:
+
+- validated SVG module icons and navigation;
+- dark/light contrast and keyboard-accessible controls;
+- input groups, select-type table columns and row management;
+- summary KPIs, warnings, read-only result tables and original plots;
+- a document/action toolbar, status bar and Home navigation.
+
+Generated screenshots from the running Qt application are stored in
+`docs/screenshots/modules/{module}-{theme}.png`. The screenshots document
+the **uncomputed default input state**, not validated engineering designs.
+
+## Engineering QA boundaries
+
+The GUI migration does not certify each solver for new design scenarios.
+Original numerical regressions remain included, and numerical validation
+against external references is tracked separately. The Suite remains Python-only:
+`python main.py`. No installers, executables or Releases are created.
