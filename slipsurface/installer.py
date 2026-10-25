@@ -9,12 +9,12 @@ import hashlib
 import io
 import json
 import logging
-import re
 import os
-import subprocess
-import sys
+import re
 import shutil
 import stat
+import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
