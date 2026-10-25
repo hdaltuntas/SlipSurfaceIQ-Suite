@@ -48,6 +48,7 @@ from slipsurface.apps import APPS, get
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.results import ResultsPanel
+from slipsurface.desktop.profiles import profile
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.widgets import ModuleHeader, section_title
 
@@ -279,6 +280,9 @@ class ModulePage(QWidget):
         self.busy = False
         self.last_result = None
         self._task = None
+        self._plot_target = "analysis"
+        self._pending_plot_target = "analysis"
+        self.profile = profile(key)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 9, 10, 9)
@@ -293,13 +297,32 @@ class ModulePage(QWidget):
         self.run_button.setObjectName("suiteAnalyzeAction")
         self.run_button.clicked.connect(self.analyze)
         self.header.add_action(self.run_button)
+        self._install_module_tools()
         root.addWidget(self.header)
 
         work = QSplitter(Qt.Horizontal)
         self.input_tabs = QTabWidget()
         self.input_tabs.setDocumentMode(True)
         self._build_input_tabs()
-        work.addWidget(self.input_tabs)
+        input_pane = QWidget()
+        input_pane_layout = QVBoxLayout(input_pane)
+        input_pane_layout.setContentsMargins(0, 0, 0, 0)
+        input_pane_layout.setSpacing(6)
+        self.section_hint = QLabel()
+        self.section_hint.setObjectName("suiteSectionHint")
+        self.section_hint.setWordWrap(True)
+        input_pane_layout.addWidget(self.section_hint)
+        input_pane_layout.addWidget(self.input_tabs, 1)
+        self.input_tabs.currentChanged.connect(self._update_section_hint)
+        primary = self.profile.primary_tab
+        for index in range(self.input_tabs.count()):
+            if self.input_tabs.tabText(index) == primary:
+                self.input_tabs.setCurrentIndex(index)
+                break
+        self._update_section_hint()
+        if self.mode is not None:
+            self.mode.currentTextChanged.connect(self._mode_changed)
+        work.addWidget(input_pane)
 
         right = QTabWidget()
         self.overview = ResultsPanel(language)
@@ -337,6 +360,102 @@ class ModulePage(QWidget):
         work.setStretchFactor(1, 5)
         root.addWidget(work, 1)
         self._update_visibility()
+
+    def _install_module_tools(self):
+        """Surface existing specialist engine operations without duplicating logic."""
+        actions = {
+            "pile": [("Kaya soketi" if self.language == "tr" else "Rock socket",
+                       lambda: self.analyze(socket=True))],
+            "msew": [("Katman üret" if self.language == "tr" else "Generate layers",
+                       self._generate_layers)],
+            "wall": [("Boyut öner" if self.language == "tr" else "Suggest dimensions",
+                       self._suggest_dimensions)],
+            "correlation": [
+                ("Oturmaya aktar" if self.language == "tr" else "Export Settle",
+                 lambda: self._export_correlation("settle")),
+                ("Taşıma gücüne aktar" if self.language == "tr" else "Export Bearing",
+                 lambda: self._export_correlation("bearing")),
+            ],
+        }
+        self.special_buttons = []
+        for label, callback in actions.get(self.key, []):
+            button = QPushButton(label)
+            button.setObjectName("suiteSpecialAction")
+            button.clicked.connect(callback)
+            self.header.add_action(button)
+            self.special_buttons.append(button)
+
+    def _update_section_hint(self, *_):
+        current = self.input_tabs.tabText(self.input_tabs.currentIndex())
+        hint = self.profile.hint_tr if self.language == "tr" else self.profile.hint_en
+        self.section_hint.setText(f"{current}  ·  {hint}")
+
+    def _mode_changed(self, mode: str):
+        if self.key != "kinematic":
+            return
+        target = "Kinematik Tarama" if self.language == "tr" else "Screening"
+        if mode != "screening":
+            target = section_title(f"equilibrium:{mode}", self.language)
+        for index in range(self.input_tabs.count()):
+            if self.input_tabs.tabText(index) == target:
+                self.input_tabs.setCurrentIndex(index)
+                break
+
+    def _generate_layers(self):
+        if self.key != "msew":
+            return
+        answer = QMessageBox.question(
+            self, "Katman üretimi" if self.language == "tr" else "Generate layers",
+            "Mevcut donatı katmanları yeni yerleşimle değiştirilsin mi?"
+            if self.language == "tr" else "Replace existing reinforcement layers?"
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        try:
+            result = self.session.generate(self.current_values())
+            layers = result["layers"]
+            if not isinstance(layers, list):
+                raise ValueError("Invalid layer layout")
+            self.tables["layers"].set_rows(layers)
+            for i in range(self.input_tabs.count()):
+                if self.input_tabs.tabText(i) == section_title("layers", self.language):
+                    self.input_tabs.setCurrentIndex(i)
+                    break
+        except (ValueError, KeyError, TypeError) as error:
+            QMessageBox.warning(self, "Layer generation", str(error))
+
+    def _suggest_dimensions(self):
+        if self.key != "wall":
+            return
+        try:
+            result = self.session.suggest(self.current_values())
+            proposed = result["values"]
+            values = self.current_values()
+            for key, value in proposed.items():
+                if key in self.fields:
+                    values[key] = value
+            self.apply_values(values)
+            self._update_section_hint()
+        except (ValueError, KeyError, TypeError) as error:
+            QMessageBox.warning(self, "Suggested dimensions", str(error))
+
+    def _export_correlation(self, target: str):
+        if self.key != "correlation":
+            return
+        if self.last_result is None:
+            QMessageBox.warning(self, "Export", "Run the correlation analysis first.")
+            return
+        path, _ = QFileDialog.getSaveFileName(
+            self, "Export project", f"{target}-from-correlation.json",
+            "JSON projects (*.json)"
+        )
+        if path:
+            try:
+                payload = self.session.export(target)
+                with open(path, "w", encoding="utf-8") as stream:
+                    json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
+            except (ValueError, OSError, TypeError) as error:
+                QMessageBox.warning(self, "Export", str(error))
 
     def _build_input_tabs(self):
         schema = self.metadata.get("schema", {})
@@ -479,7 +598,7 @@ class ModulePage(QWidget):
             table.set_rows(values.get(key, []))
         self._update_visibility()
 
-    def analyze(self):
+    def analyze(self, *_, socket=False):
         if self.busy:
             return
         try:
@@ -489,7 +608,10 @@ class ModulePage(QWidget):
             return
         self.data = copy.deepcopy(values)
         self.busy = True
+        self._pending_plot_target = "socket" if socket and self.key == "pile" else "analysis"
         self.run_button.setEnabled(False)
+        for button in self.special_buttons:
+            button.setEnabled(False)
         self.result_text.setPlainText("Hesaplanıyor…" if self.language == "tr"
                                       else "Calculating…")
 
@@ -498,6 +620,8 @@ class ModulePage(QWidget):
                 mode = self.mode.currentText()
                 return self.session.screen(values) if mode == "screening" else \
                     self.session.equilibrium(mode, values)
+            if self._pending_plot_target == "socket":
+                return self.session.analyse_socket(values)
             return self.session.analyse(values)
 
         self._task = AnalysisTask(operation)
@@ -507,6 +631,8 @@ class ModulePage(QWidget):
     def _on_analysis_finished(self, result, error):
         self.busy = False
         self.run_button.setEnabled(True)
+        for button in self.special_buttons:
+            button.setEnabled(True)
         self._task = None
         if error:
             self.overview.dashboard.clear_results()
@@ -518,6 +644,7 @@ class ModulePage(QWidget):
             self.result_text.setPlainText(str(result.get("error", "Analysis not completed")))
             return
         self.last_result = result
+        self._plot_target = self._pending_plot_target
         if isinstance(result, dict):
             self.overview.dashboard.update_results(result)
         self.result_text.setPlainText(_pretty_result(result))
@@ -546,7 +673,7 @@ class ModulePage(QWidget):
                 target = "screening" if self.mode.currentText() == "screening" else "equilibrium"
                 data = self.session.plot(target, kind)
             else:
-                data = self.session.plot("analysis", kind)
+                data = self.session.plot(self._plot_target, kind)
             pixmap = QPixmap()
             if not pixmap.loadFromData(data, "PNG"):
                 raise ValueError("Invalid PNG returned from analysis")
