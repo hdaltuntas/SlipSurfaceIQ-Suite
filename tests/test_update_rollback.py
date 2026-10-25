@@ -17,7 +17,6 @@ from slipsurface.installer import (
 )
 from slipsurface.registry import discover
 
-
 WORKING_SESSION = """class Session:
     def __init__(self, lang="tr"):
         self.lang = lang
