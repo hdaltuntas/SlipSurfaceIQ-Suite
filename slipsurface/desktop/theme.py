@@ -194,5 +194,122 @@ QPushButton#suiteSpecialAction { background: #2f4969; color: #e2eeff;
 """
 
 
+
+# SlipSurfaceIQ identity layer. It deliberately lives after the shared form
+# styles so all ten existing engineering editors keep their sizing/behavior.
+_BRAND_LIGHT = """
+QWidget { font-family: "Segoe UI"; }
+QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #EFF5FD; }
+QMainWindow, QSplitter { background: #EFF5FD; }
+QLabel#suiteHomeEyebrow { color: #4B47C1; font-size: 10px; font-weight: 700; }
+QLabel#suiteHomeHeading { color: #142844; font-size: 24px; }
+QLabel#suiteHomeSubtitle { color: #526581; font-size: 12px; }
+QFrame#suiteBrandHero {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                                stop:0 #0B1529,stop:0.55 #132744,stop:1 #190C38);
+    border: 1px solid #273B65; border-radius: 18px;
+}
+QFrame#suiteBrandHero QLabel { background: transparent; border: none; }
+QLabel#suiteBrandName { color: #FFFFFF; font-size: 29px; font-weight: 800; }
+QLabel#suiteBrandIQ { color: #B883FF; font-size: 29px; font-weight: 800; }
+QLabel#suiteBrandDescriptor { color: #BDD0EA; font-size: 11px; letter-spacing: 2px; }
+QLabel#suiteBrandMotto { color: #4FEAFF; font-size: 11px; font-weight: 700; }
+QLabel#suiteBrandCategory { color: #91ABD0; font-size: 10px; }
+QFrame#suiteModuleCard { background: #FFFFFF; border: 1px solid #C9D7EA; border-radius: 13px; }
+QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus {
+    border: 2px solid #238CFF; background: #F7FAFF;
+}
+QLabel#suiteCardCategory { color: #4B47C1; }
+QLabel#suiteCardTitle { color: #132A48; }
+QLabel#suiteCardDescription { color: #506887; }
+QLabel#suiteCardIcon { background: #F0F5FF; border: 1px solid #CFDFF4; }
+QPushButton#suiteCardLaunch { background: #E6F1FF; color: #174D9B;
+    border: 1px solid #BCD6F7; font-weight: 700; }
+QPushButton#suiteCardLaunch:hover { background: #CCEAFF; color: #0B397A; }
+QPushButton#suiteCardLaunch:focus { border: 2px solid #6B4CFF; }
+QFrame#suiteWorkspaceToolbar { background: #FFFFFF; border: 1px solid #D2DFF0;
+    border-radius: 11px; }
+QLabel#suiteToolbarBrand { color: #142844; font-size: 15px; font-weight: 800; }
+QFrame#suiteModuleHeader { background: #FFFFFF; border: 1px solid #CCDDF0;
+    border-left: 4px solid #238CFF; border-radius: 12px; }
+QLabel#suiteModuleHeading { color: #142844; }
+QLabel#suiteModuleSubheading { color: #5A6F8D; }
+QLabel#suiteModuleGroup { color: #5142BE; }
+QPushButton#suiteAnalyzeAction { background: #1767C7; color: #FFFFFF;
+    border: 1px solid #14549C; font-weight: 750; }
+QPushButton#suiteAnalyzeAction:hover { background: #114F9F; }
+QPushButton#suiteHomeBack { background: #F0F5FF; color: #264F91;
+    border: 1px solid #C7D9F3; }
+QListWidget::item:selected { background: #225DAD; color: #FFFFFF; }
+QTabBar::tab:selected { background: #FFFFFF; color: #174C92; }
+QTabBar::tab:hover:!selected { background: #DCEAFE; }
+QLabel#suiteSectionHint { background: #E9F2FF; color: #31547E;
+    border: 1px solid #D1E3F9; }
+QLabel#suiteResultsHeading { color: #173D67; }
+QLabel#suiteMetricValue { color: #174E8B; }
+QFrame#suiteResultCard { background: #FFFFFF; border: 1px solid #D3E0EF;
+    border-radius: 10px; }
+"""
+
+_BRAND_DARK = """
+QWidget { font-family: "Segoe UI"; }
+QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #0B1529; }
+QMainWindow, QSplitter, QScrollArea { background: #0B1529; }
+QMenuBar, QMenu { background: #12223B; color: #EFF5FF; }
+QMenuBar::item:selected, QMenu::item:selected { background: #284674; color: #FFFFFF; }
+QFrame#suiteBrandHero {
+    background: qlineargradient(x1:0,y1:0,x2:1,y2:1,
+                                stop:0 #0B1529,stop:0.55 #12284B,stop:1 #231344);
+    border: 1px solid #304C7C; border-radius: 18px;
+}
+QFrame#suiteBrandHero QLabel { background: transparent; border: none; }
+QLabel#suiteBrandName { color: #FFFFFF; font-size: 29px; font-weight: 800; }
+QLabel#suiteBrandIQ { color: #B883FF; font-size: 29px; font-weight: 800; }
+QLabel#suiteBrandDescriptor { color: #BDD0EA; font-size: 11px; letter-spacing: 2px; }
+QLabel#suiteBrandMotto { color: #4FEAFF; font-size: 11px; font-weight: 700; }
+QLabel#suiteBrandCategory { color: #91ABD0; font-size: 10px; }
+QLabel#suiteHomeEyebrow { color: #8FC8FF; font-size: 10px; font-weight: 700; }
+QLabel#suiteHomeHeading { color: #F2F7FF; font-size: 24px; }
+QLabel#suiteHomeSubtitle { color: #B5C8E1; font-size: 12px; }
+QFrame#suiteModuleCard { background: #14243E; border: 1px solid #365276;
+    border-radius: 13px; }
+QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus {
+    border: 2px solid #46CFFF; background: #1C3150;
+}
+QLabel#suiteCardCategory { color: #9EBCFF; }
+QLabel#suiteCardTitle { color: #F2F7FF; }
+QLabel#suiteCardDescription { color: #B5C7DF; }
+QLabel#suiteCardIcon { background: #1D3655; border: 1px solid #426389; }
+QPushButton#suiteCardLaunch { background: #1E4675; color: #E4F4FF;
+    border: 1px solid #416FA2; font-weight: 700; }
+QPushButton#suiteCardLaunch:hover { background: #286297; }
+QPushButton#suiteCardLaunch:focus { border: 2px solid #B18BFF; }
+QFrame#suiteWorkspaceToolbar { background: #13253F; border: 1px solid #33537A;
+    border-radius: 11px; }
+QLabel#suiteToolbarBrand { color: #F3F8FF; font-size: 15px; font-weight: 800; }
+QFrame#suiteModuleHeader { background: #142744; border: 1px solid #345579;
+    border-left: 4px solid #00DDF5; border-radius: 12px; }
+QLabel#suiteModuleHeading { color: #F3F8FF; }
+QLabel#suiteModuleSubheading { color: #BCD0E7; }
+QLabel#suiteModuleGroup { color: #9FA9FF; }
+QPushButton#suiteAnalyzeAction { background: #1D73C9; color: #FFFFFF;
+    border: 1px solid #3899F8; font-weight: 750; }
+QPushButton#suiteAnalyzeAction:hover { background: #238BDF; }
+QPushButton#suiteHomeBack { background: #213D62; color: #E8F4FF;
+    border: 1px solid #4575AA; }
+QListWidget { background: #13253D; color: #EAF4FF; }
+QListWidget::item:selected { background: #245CA0; color: #FFFFFF; }
+QTabBar::tab { background: #1A2F4D; color: #D9E8FB; }
+QTabBar::tab:selected { background: #304E77; color: #FFFFFF; }
+QTabBar::tab:hover:!selected { background: #28446A; }
+QLabel#suiteSectionHint { background: #1A3556; color: #D7EAFF;
+    border: 1px solid #385D87; }
+QLabel#suiteResultsHeading { color: #EAF5FF; }
+QLabel#suiteMetricValue { color: #F2FAFF; }
+QFrame#suiteResultCard { background: #182C48; border: 1px solid #3B577B;
+    border-radius: 10px; }
+"""
+
+
 def stylesheet(theme: str) -> str:
-    return DARK if theme == "dark" else LIGHT
+    return (DARK + _BRAND_DARK) if theme == "dark" else (LIGHT + _BRAND_LIGHT)
