@@ -20,6 +20,19 @@ Options to bypass the home dashboard and open a module immediately:
 
 Only Python sources and main.py are used. No EXE, installer, PyInstaller, distribution package, release or web server.
 
+## Interface
+
+The home screen and all ten module workspaces use the same icon-led PySide6
+visual language: [desktop design system](docs/UI_DESIGN_SYSTEM.md). Module
+icons are scalable SVG files and appear on home cards, module tabs, sidebars
+and module headers. Both light and dark themes are supported.
+
+Current native screenshots:
+[launchpad — light](docs/screenshots/native-pyside6-home-light.png) ·
+[module — light](docs/screenshots/native-pyside6-bearing-light.png) ·
+[launchpad — dark](docs/screenshots/native-pyside6-home-dark.png) ·
+[module — dark](docs/screenshots/native-pyside6-bearing-dark.png).
+
 ## Tests
 
     python -m pip install -r requirements-dev.txt
