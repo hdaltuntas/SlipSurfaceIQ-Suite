@@ -20,6 +20,15 @@ Options to bypass the home dashboard and open a module immediately:
 
 The desktop launcher uses only Python and main.py. There is no EXE, PyInstaller, Windows installer or web server. Optional **per-module** signed-catalogue ZIP archives are supported for updating an individual Python analysis module (see docs/UPDATE_CATALOGUE.md); these are not desktop installer packages.
 
+## Corporate identity
+
+The original neon S mark is integrated into the native PySide6 window icon,
+short startup splash, dashboard, module headers and contrast-conscious light/dark
+themes. See [Brand integration](docs/BRAND_INTEGRATION.md).
+
+Use `python main.py --no-splash` to skip the splash. The existing `--app`
+direct launch still works. No EXE, installer or web server is required.
+
 ## Interface
 
 The home screen and all ten module workspaces use the same icon-led PySide6
