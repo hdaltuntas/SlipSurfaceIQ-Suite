@@ -64,6 +64,23 @@ QTabWidget::pane { border: 1px solid #cdd9e8; border-radius: 4px; }
 QPushButton:focus { border: 2px solid #367ac8; }
 QListWidget::item:hover:!selected { background: #deebfa; }
 
+
+/* Results summary shared across every module */
+QLabel#suiteResultsHeading { color: #173451; font-weight: 750; font-size: 17px; }
+QLabel#suiteResultsHeadline { color: #375b82; font-size: 12px; }
+QFrame#suiteResultCard { background: #ffffff; border: 1px solid #cddaea; border-radius: 10px; }
+QLabel#suiteMetricTitle { color: #526985; font-size: 11px; }
+QLabel#suiteMetricValue { color: #153b66; font-size: 20px; font-weight: 750; }
+QLabel#suiteMetricDetail { color: #64788e; font-size: 10px; }
+QFrame#suiteResultCard[checkState="ok"] { border-left: 4px solid #1c9568; }
+QFrame#suiteResultCard[checkState="bad"] { border-left: 4px solid #c25d43; }
+QFrame#suiteResultCard[checkState="warn"] { border-left: 4px solid #be862d; }
+QLabel#suiteResultWarnings { background: #fff3d9; border: 1px solid #ebca81;
+    border-radius: 7px; padding: 10px; color: #684614; }
+QFrame#suiteResultTablePanel { background: #ffffff; border: 1px solid #cddaea;
+    border-radius: 8px; }
+QLabel#suiteResultTableTitle { color: #294b71; font-weight: 650; }
+
 """
 
 DARK = """
@@ -122,6 +139,21 @@ QFrame#suiteWorkspaceToolbar QPushButton { min-height: 22px; }
 QTabWidget::pane { border: 1px solid #405978; border-radius: 4px; }
 QPushButton:focus { border: 2px solid #90baff; }
 QListWidget::item:hover:!selected { background: #334966; }
+
+
+QLabel#suiteResultsHeading { color: #f1f5ff; font-weight: 750; font-size: 17px; }
+QLabel#suiteResultsHeadline { color: #b9cce4; font-size: 12px; }
+QFrame#suiteResultCard { background: #283950; border: 1px solid #456081; border-radius: 10px; }
+QLabel#suiteMetricTitle { color: #b9cce4; font-size: 11px; }
+QLabel#suiteMetricValue { color: #f2f7ff; font-size: 20px; font-weight: 750; }
+QLabel#suiteMetricDetail { color: #a8bdd7; font-size: 10px; }
+QFrame#suiteResultCard[checkState="ok"] { border-left: 4px solid #63cda7; }
+QFrame#suiteResultCard[checkState="bad"] { border-left: 4px solid #f38f82; }
+QFrame#suiteResultCard[checkState="warn"] { border-left: 4px solid #f2bd68; }
+QLabel#suiteResultWarnings { background: #4d3b28; border: 1px solid #8f7646;
+    border-radius: 7px; padding: 10px; color: #ffe9bf; }
+QFrame#suiteResultTablePanel { background: #283950; border: 1px solid #456081; border-radius: 8px; }
+QLabel#suiteResultTableTitle { color: #e0edfc; font-weight: 650; }
 
 """
 

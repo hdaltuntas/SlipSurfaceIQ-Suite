@@ -47,6 +47,7 @@ from slipsurface import APP_NAME, __version__
 from slipsurface.apps import APPS, get
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
+from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.widgets import ModuleHeader, section_title
 
@@ -246,13 +247,15 @@ class ModulePage(QWidget):
         work.addWidget(self.input_tabs)
 
         right = QTabWidget()
+        self.overview = ResultsPanel(language)
+        right.addTab(self.overview, "Özet" if language == "tr" else "Summary")
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
         self.result_text.setPlaceholderText(
             "Hesaplama çıktıları bu panelde görüntülenir." if language == "tr"
             else "Analysis results will appear here."
         )
-        right.addTab(self.result_text, "Sonuçlar" if language == "tr" else "Results")
+        right.addTab(self.result_text, "Ayrıntılar" if language == "tr" else "Details")
         plot_panel = QWidget()
         figure_layout = QVBoxLayout(plot_panel)
         figure_bar = QHBoxLayout()
@@ -451,13 +454,17 @@ class ModulePage(QWidget):
         self.run_button.setEnabled(True)
         self._task = None
         if error:
+            self.overview.dashboard.clear_results()
             self.result_text.setPlainText("Analysis failed:\n" + error)
             QMessageBox.warning(self, "Analysis error", error)
             return
         if isinstance(result, dict) and result.get("ok") is False:
+            self.overview.dashboard.clear_results()
             self.result_text.setPlainText(str(result.get("error", "Analysis not completed")))
             return
         self.last_result = result
+        if isinstance(result, dict):
+            self.overview.dashboard.update_results(result)
         self.result_text.setPlainText(_pretty_result(result))
         figures = result.get("figures", []) if isinstance(result, dict) else []
         if not figures:

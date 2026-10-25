@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
-    QFrame, QGridLayout, QHBoxLayout, QLabel, QScrollArea,
+    QAbstractItemView, QFrame, QGridLayout, QLabel, QScrollArea,
     QTableWidget, QTableWidgetItem, QVBoxLayout, QWidget,
 )
 
@@ -164,7 +164,7 @@ class ResultDashboard(QWidget):
             grid = QTableWidget(len(definition["rows"]), len(headers))
             grid.setObjectName("suiteResultTable")
             grid.setHorizontalHeaderLabels(headers)
-            grid.setEditTriggers(QTableWidget.NoEditTriggers)
+            grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
             grid.setMinimumHeight(min(360, max(140, len(definition["rows"]) * 28 + 52)))
             for row_index, row in enumerate(definition["rows"]):
                 cells = row.get("cells", []) if isinstance(row, dict) else row
