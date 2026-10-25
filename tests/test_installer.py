@@ -66,7 +66,7 @@ def test_install_release_unpacks_and_reports_the_manifest(tmp_path=None):
     assert installed_keys(apps) == ["pile"]
     # A second install replaces the first in place.
     manifest = install_release(
-        _record(version="1.2.0", url="x"), apps_root=apps,
+        _record(version="1.2.0", url="https://example.com/pile-1.2.0.zip"), apps_root=apps,
         fetch=lambda url: _archive_bytes(_manifest(version="1.2.0")),
     )
     assert manifest["version"] == "1.2.0"
