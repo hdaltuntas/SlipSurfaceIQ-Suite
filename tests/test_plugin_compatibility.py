@@ -50,7 +50,7 @@ def test_incompatible_module_is_visible_but_disabled(monkeypatch):
         card = window.home.cards["future_solver"]
         card.activated.connect(seen.append)
         assert not card.launch_button.isEnabled()
-        assert "Uyumsuz" in card.toolTip()
+        assert "uyumsuz" in card.toolTip().casefold()
         card.activate()
         assert seen == []
         matches = [
