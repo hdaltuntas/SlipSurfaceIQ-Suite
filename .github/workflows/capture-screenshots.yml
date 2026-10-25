@@ -6,6 +6,8 @@ on:
     branches: [main]
     paths:
       - "scripts/capture_native_ui.py"
+      - "slipsurface/desktop/app.py"
+      - "slipsurface/desktop/home.py"
       - ".github/workflows/capture-screenshots.yml"
 
 permissions:
@@ -33,8 +35,9 @@ jobs:
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add docs/screenshots/native-pyside6-home-light.png docs/screenshots/native-pyside6-home-dark.png
           git add docs/screenshots/native-pyside6-bearing-light.png docs/screenshots/native-pyside6-bearing-dark.png
           if ! git diff --cached --quiet; then
-            git commit -m "docs: capture actual PySide6 desktop screenshots [skip ci]"
+            git commit -m "docs: capture home and module PySide6 screenshots [skip ci]"
             git push
           fi

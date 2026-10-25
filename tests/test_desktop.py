@@ -7,6 +7,7 @@ from PySide6.QtWidgets import QApplication
 
 from slipsurface.apps import APPS
 from slipsurface.desktop.app import MainWindow, ModulePage, _conditions_match, _table_key
+from slipsurface.desktop.home import module_description
 
 
 def test_visibility_predicates():
@@ -17,15 +18,67 @@ def test_visibility_predicates():
     assert not _conditions_match({"when": {"method": ["hansen"]}}, values)
 
 
-def test_bearing_page_loads_in_native_shell():
+def test_home_dashboard_is_default_and_all_cards_are_localized():
     app = QApplication.instance() or QApplication([])
-    window = MainWindow(language="tr", theme="light", initial_app="bearing")
+    window = MainWindow(language="tr", theme="light")
+    try:
+        assert window.stack.currentWidget() is window.home
+        assert window.current_page() is None
+        assert len(window.home.cards) == len(APPS) == 10
+        assert all(not action.isEnabled() for action in window.project_actions)
+        for module in APPS:
+            card = window.home.cards[module.key]
+            assert card.accessibleName() == module.tr
+            assert card.accessibleDescription() == module_description(module, "tr")
+            assert card.accessibleDescription().strip()
+            assert card.launch_button.text().startswith("Programı aç")
+        assert app.styleSheet()
+    finally:
+        window.close()
+
+
+def test_card_opens_module_and_back_preserves_state():
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", theme="light")
+    try:
+        window.home.cards["bearing"].launch_button.click()
+        page = window.current_page()
+        assert page is not None and page.key == "bearing"
+        assert page.fields
+        assert window.stack.currentWidget() is window.workspace
+        assert all(action.isEnabled() for action in window.project_actions)
+
+        window.back_button.click()
+        assert window.current_page() is None
+        assert window.stack.currentWidget() is window.home
+
+        window.home.cards["bearing"].activate()
+        assert window.current_page() is page  # no destructive reinitialization
+        window.show_home()
+        window.home.cards["rock"].activate()
+        assert window.current_page().key == "rock"
+        window.show_home()
+        assert len(window.pages) == 2
+    finally:
+        window.close()
+    assert app is not None
+
+
+def test_direct_module_launch_remains_supported():
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow(language="en", theme="dark", initial_app="bearing")
     try:
         assert window.current_page() is not None
         assert window.current_page().key == "bearing"
         assert window.navigator.count() == 10
         assert window.current_page().fields
         assert app.styleSheet()
+        window.show_home()
+        assert window.current_page() is None
+        assert window.home.cards["bearing"].accessibleName() == "Bearing"
+        assert window.home.cards["bearing"].accessibleDescription() == module_description(
+            APPS[2], "en"
+        )
     finally:
         window.close()
 
