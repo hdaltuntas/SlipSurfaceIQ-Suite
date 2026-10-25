@@ -31,6 +31,7 @@ from importlib.metadata import entry_points
 from pathlib import Path
 from typing import Callable
 
+from slipsurface import CORE_VERSION
 from slipsurface.versioning import VersionError, is_compatible, parse
 
 __all__ = [
@@ -40,6 +41,8 @@ __all__ = [
     "USER_APPS_DIR",
     "load_manifest",
     "discover",
+    "discover_with_issues",
+    "incompatible_modules",
 ]
 
 #: The ``importlib.metadata`` group a plugin registers its manifest under
@@ -169,6 +172,13 @@ def _installed_manifests(apps_root: Path | None = None) -> list[dict]:
         # the catalogue reports. The directory is checked above to expose
         # nothing importable except that one package.
         location = str(directory)
+        if not is_compatible(CORE_VERSION, manifest.get("requires_core", "")):
+            # Report the release as incompatible, but never put its Python
+            # package on sys.path where it might shadow the bundled module.
+            if location in sys.path:
+                sys.path.remove(location)
+            manifests.append(manifest)
+            continue
         if location in sys.path:
             sys.path.remove(location)
         sys.path.insert(0, location)
@@ -190,22 +200,42 @@ def _holds_only_release(directory: Path, key: str) -> bool:
     return names <= allowed and (directory / f"slipsurface_{key}").is_dir()
 
 
-def discover(apps_root: Path | str | None = None) -> list[dict]:
-    """Every application manifest, bundled ones plus every installed source.
+def discover_with_issues(apps_root: Path | str | None = None) -> tuple[list[dict], list[dict]]:
+    """Return launchable manifests and explanations for incompatible plugins.
 
-    Duplicate keys collapse in favour of the most local manifest (installed
-    releases first, entry points second, bundled last), and the result is
-    sorted by ``order`` then ``key`` so the launchpad is stable whichever
-    way the manifests were read.
+    An incompatible installed release cannot override its compatible bundled
+    counterpart. It is not imported or exposed as a clickable launcher card.
     """
     merged: dict[str, dict] = {}
+    issues: list[dict] = []
     for manifest in (
         _bundled_manifests()
         + _entry_point_manifests()
         + _installed_manifests(apps_root)
     ):
+        requirement = manifest.get("requires_core", "")
+        if not is_compatible(CORE_VERSION, requirement):
+            issues.append({
+                "key": manifest["key"],
+                "name": manifest["name"],
+                "version": manifest["version"],
+                "requires_core": requirement,
+                "core": CORE_VERSION,
+            })
+            continue
         merged[manifest["key"]] = manifest
-    return sorted(
+    active = sorted(
         merged.values(),
         key=lambda manifest: (manifest.get("order", 1000), manifest["key"]),
     )
+    return active, issues
+
+
+def incompatible_modules(apps_root: Path | str | None = None) -> list[dict]:
+    """Incompatible releases for a warning on the landing page."""
+    return discover_with_issues(apps_root)[1]
+
+
+def discover(apps_root: Path | str | None = None) -> list[dict]:
+    """Only modules whose declared core requirements this Suite satisfies."""
+    return discover_with_issues(apps_root)[0]

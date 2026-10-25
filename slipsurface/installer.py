@@ -24,7 +24,10 @@ from slipsurface import CORE_VERSION
 from slipsurface.registry import USER_APPS_DIR, load_manifest
 from slipsurface.versioning import is_compatible
 
-__all__ = ["InstallError", "install_release", "uninstall", "installed_keys", "download"]
+__all__ = [
+    "InstallError", "install_release", "uninstall", "installed_keys", "download",
+    "rollback_release", "finalize_release", "verify_release",
+]
 
 LOG = logging.getLogger(__name__)
 
