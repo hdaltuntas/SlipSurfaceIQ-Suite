@@ -89,9 +89,12 @@ class ModuleCard(QFrame):
             badge.setObjectName("suiteCardUpdateBadge")
             if not update.core_ok:
                 badge.setObjectName("suiteCardUpdateBadgeIncompatible")
-            badge.setToolTip(update.changelog if update.changelog else badge.text())
+            tooltip = update.changelog if update.changelog else badge.text()
+            if update.url and not update.sha256:
+                tooltip += "\nSHA-256 checksum required before installation."
+            badge.setToolTip(tooltip)
             footer.addWidget(badge)
-            if update.core_ok and update.url:
+            if update.core_ok and update.url and update.sha256:
                 install = QPushButton("Güncelle" if language == "tr" else "Update")
                 install.setObjectName("suiteCardUpdateInstall")
                 install.setToolTip(

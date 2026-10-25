@@ -28,6 +28,7 @@ is preserved as ``index.json.bak`` and restored by ``--revert``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -77,6 +78,7 @@ def main(argv: list[str] | None = None) -> int:
     )
     demo_version = _next_patch(manifest["version"])
     archive = build(arguments.key, ROOT / "dist", version=demo_version)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 
     record = {
         arguments.key: {
@@ -85,6 +87,7 @@ def main(argv: list[str] | None = None) -> int:
             or f"Demonstration release {demo_version} for the update flow.",
             "requires_core": manifest["requires_core"],
             "url": archive.resolve().as_uri(),
+            "sha256": digest,
         }
     }
 
@@ -110,6 +113,7 @@ def main(argv: list[str] | None = None) -> int:
             "requires_core": manifest["requires_core"],
             "url": f"https://github.com/hdaltuntas/SlipSurfaceIQ-Suite/"
                    f"releases/download/v{demo_version}/{archive.name}",
+            "sha256": digest,
         }
     }, ensure_ascii=False, indent=2))
     return 0
