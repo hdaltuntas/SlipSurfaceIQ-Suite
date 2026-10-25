@@ -8,6 +8,7 @@ from __future__ import annotations
 import argparse
 import copy
 import importlib
+import inspect
 import json
 import logging
 import sys
@@ -53,6 +54,7 @@ from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.updater import load_available_updates
 from slipsurface.desktop.widgets import ModuleHeader, section_title
+from slipsurface.contract import satisfies_contract
 
 LOG = logging.getLogger(__name__)
 
@@ -298,7 +300,16 @@ class ModulePage(QWidget):
         self.key = key
         self.language = language
         adapter = importlib.import_module(session_path(key))
-        self.session = adapter.Session() if key == "kinematic" else adapter.Session(lang=language)
+        factory = adapter.Session
+        parameters = inspect.signature(factory).parameters
+        if "lang" in parameters:
+            self.session = factory(lang=language)
+        elif "language" in parameters:
+            self.session = factory(language=language)
+        else:
+            self.session = factory()
+        if not satisfies_contract(self.session):
+            raise TypeError(f"{key}: module session does not implement AppSession")
         if key == "kinematic":
             self.session.set_language(language)
             forms = importlib.import_module(forms_path(key))
