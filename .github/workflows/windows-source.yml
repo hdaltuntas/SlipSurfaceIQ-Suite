@@ -1,0 +1,31 @@
+name: Windows Python source validation
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  native-windows:
+    runs-on: windows-latest
+    env:
+      QT_QPA_PLATFORM: offscreen
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python and Qt runtime libraries
+        run: python -m pip install -r requirements-dev.txt
+      - name: Validate main.py CLI entry point
+        run: python main.py --help
+      - name: Compile Python sources
+        run: python -m compileall -q main.py slipsurface tests
+      - name: Lint GUI, updater, modules and tests
+        run: ruff check main.py slipsurface/apps.py slipsurface/desktop slipsurface/installer.py slipsurface/release_probe.py tests
+      - name: Run full numerical, update, and headless PySide6 suite
+        run: python -m pytest -q
+      - name: Open native PySide6 UI in offscreen mode
+        run: python scripts/capture_native_ui.py
