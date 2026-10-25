@@ -10,6 +10,9 @@ import io
 import json
 import logging
 import re
+import os
+import subprocess
+import sys
 import shutil
 import stat
 import tempfile
@@ -22,7 +25,10 @@ from slipsurface import CORE_VERSION
 from slipsurface.registry import USER_APPS_DIR, load_manifest
 from slipsurface.versioning import is_compatible
 
-__all__ = ["InstallError", "install_release", "uninstall", "installed_keys", "download"]
+__all__ = [
+    "InstallError", "install_release", "uninstall", "installed_keys", "download",
+    "confirm_release", "rollback_release",
+]
 
 LOG = logging.getLogger(__name__)
 
@@ -177,8 +183,40 @@ def _is_stale_backup(backup: Path, destination: Path, key: str) -> bool:
     return isinstance(manifest, dict) and manifest.get("key") == key
 
 
+def _validate_staged(staged: Path, key: str) -> None:
+    """Probe the *candidate* package before replacing a working installation.
+
+    The independent interpreter prevents stale sys.modules entries from
+    masking broken imports and leaves the running Qt application untouched.
+    """
+    root = Path(__file__).resolve().parent.parent
+    environment = os.environ.copy()
+    environment["PYTHONPATH"] = os.pathsep.join(
+        [str(root), str(staged), environment.get("PYTHONPATH", "")]
+    )
+    environment.setdefault("QT_QPA_PLATFORM", "offscreen")
+    environment.setdefault("MPLBACKEND", "Agg")
+    try:
+        result = subprocess.run(
+            [sys.executable, "-m", "slipsurface.release_probe", str(staged), key],
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="replace",
+            timeout=75,
+            env=environment,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise InstallError(f"could not validate candidate module: {error}") from error
+    if result.returncode:
+        explanation = (result.stderr or result.stdout).strip()[-1800:]
+        raise InstallError(f"candidate module failed validation: {explanation}")
+
+
 def install_release(
-    record, apps_root: Path | str | None = None, core: str = CORE_VERSION, fetch=None
+    record, apps_root: Path | str | None = None, core: str = CORE_VERSION,
+    fetch=None, keep_backup: bool = False,
 ) -> dict:
     """Verify a release then replace one user-installed module with rollback."""
     if not isinstance(record, dict):
@@ -232,6 +270,7 @@ def install_release(
             with tempfile.TemporaryDirectory(prefix=f".{key}-staging-", dir=root_dir) as temp:
                 staged = Path(temp) / "release"
                 _extract(archive, root, staged)
+                _validate_staged(staged, key)
                 had_previous = destination.exists()
                 if had_previous:
                     destination.rename(backup)
@@ -241,7 +280,7 @@ def install_release(
                     if had_previous:
                         backup.rename(destination)
                     raise
-                if had_previous:
+                if had_previous and not keep_backup:
                     # The new release is live: failing to delete the old copy
                     # (a locked file, say) must not report the update as failed.
                     # A leftover backup is never discovered as a module and is
@@ -253,6 +292,51 @@ def install_release(
     except (zipfile.BadZipFile, EOFError) as error:
         raise InstallError(f"invalid release ZIP: {error}") from error
     return manifest
+
+
+def confirm_release(key: str, apps_root: Path | str | None = None) -> None:
+    """Discard an old release only *after* the updated GUI page opens."""
+    key = _key(key)
+    root = Path(apps_root) if apps_root is not None else USER_APPS_DIR
+    destination = root / key
+    backup = root / f"{key}.previous"
+    if not backup.exists():
+        return
+    if backup.is_symlink() or destination.is_symlink():
+        raise InstallError("cannot confirm symbolic links")
+    if not _is_stale_backup(backup, destination, key):
+        raise InstallError("backup does not match the active module")
+    shutil.rmtree(backup)
+
+
+def rollback_release(key: str, apps_root: Path | str | None = None) -> None:
+    """Restore the previous plugin, or remove a failed first-time override.
+
+    A failed rename restores the candidate so that no installed data is
+    inadvertently removed. No operation touches the bundled Suite module.
+    """
+    key = _key(key)
+    root = Path(apps_root) if apps_root is not None else USER_APPS_DIR
+    destination = root / key
+    backup = root / f"{key}.previous"
+    if destination.is_symlink() or backup.is_symlink():
+        raise InstallError("cannot roll back symbolic links")
+    if not destination.is_dir() or not (destination / "app.json").is_file():
+        raise InstallError("no active installed release to roll back")
+    if backup.exists() and not _is_stale_backup(backup, destination, key):
+        raise InstallError("backup cannot be safely identified")
+    if backup.exists():
+        with tempfile.TemporaryDirectory(prefix=f".{key}-rollback-", dir=root) as temp:
+            rejected = Path(temp) / "rejected"
+            destination.rename(rejected)
+            try:
+                backup.rename(destination)
+            except OSError:
+                rejected.rename(destination)
+                raise
+    else:
+        # On first install there is no user version: expose bundled module.
+        shutil.rmtree(destination)
 
 
 def uninstall(key: str, apps_root: Path | str | None = None) -> bool:
