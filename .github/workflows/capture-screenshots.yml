@@ -10,6 +10,10 @@ on:
       - "slipsurface/desktop/home.py"
       - ".github/workflows/capture-screenshots.yml"
 
+concurrency:
+  group: suite-screenshots-main
+  cancel-in-progress: true
+
 permissions:
   contents: write
 
@@ -39,5 +43,6 @@ jobs:
           git add docs/screenshots/native-pyside6-bearing-light.png docs/screenshots/native-pyside6-bearing-dark.png
           if ! git diff --cached --quiet; then
             git commit -m "docs: capture home and module PySide6 screenshots [skip ci]"
-            git push
+            git pull --rebase origin main
+            git push origin HEAD:main
           fi
