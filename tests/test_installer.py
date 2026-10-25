@@ -9,14 +9,7 @@ import pytest
 
 from slipsurface import installer
 from slipsurface.desktop.updater import AppUpdate, check
-from slipsurface.installer import (
-    InstallError,
-    finalize_release,
-    install_release,
-    installed_keys,
-    rollback_release,
-    uninstall,
-)
+from slipsurface.installer import InstallError, install_release, installed_keys, uninstall
 from slipsurface.registry import discover
 
 EXPECTED_ORDER = [
