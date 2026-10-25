@@ -1,4 +1,4 @@
-"""Capture real native PySide6 launchpad and module screens, not mockups."""
+"""Capture actual native PySide6 home and all ten module screens."""
 from __future__ import annotations
 
 import os
@@ -15,10 +15,11 @@ from slipsurface.apps import APPS
 from slipsurface.desktop.app import MainWindow
 
 
-def _capture(window: MainWindow, output: Path, filename: str, app: QApplication):
+def _capture(window: MainWindow, folder: Path, name: str, app: QApplication) -> None:
+    folder.mkdir(parents=True, exist_ok=True)
     for _ in range(8):
         app.processEvents()
-    path = output / filename
+    path = folder / name
     shot = window.grab()
     if shot.isNull() or not shot.save(str(path), "PNG"):
         raise RuntimeError(f"Could not capture {path}")
@@ -33,20 +34,19 @@ def capture() -> None:
         window = MainWindow(language="tr", theme=theme)
         window.resize(1500, 920)
         window.show()
-        if window.current_page() is not None or len(window.home.cards) != 10:
-            raise RuntimeError("Home dashboard did not appear with ten module cards")
-        _capture(window, output, f"native        module_dir = output / "modules"
-        module_dir.mkdir(exist_ok=True)
+        if window.current_page() is not None or len(window.home.cards) != len(APPS):
+            raise RuntimeError("Home dashboard did not load")
+        _capture(window, output, f"native-pyside6-home-{theme}.png", app)
+
         for module in APPS:
             window.open_module(module.key)
             page = window.current_page()
             if page is None or page.key != module.key:
                 raise RuntimeError(f"Module {module.key} failed to open")
-            _capture(window, module_dir, f"{module.key}-{theme}.png", app)
+            _capture(window, output / "modules", f"{module.key}-{theme}.png", app)
             if module.key == "bearing":
                 _capture(window, output, f"native-pyside6-bearing-{theme}.png", app)
             window.show_home()
-yside6-bearing-{theme}.png", app)
         window.close()
         app.processEvents()
 
