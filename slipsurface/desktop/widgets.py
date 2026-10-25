@@ -56,3 +56,27 @@ class ModuleHeader(QFrame):
 
     def add_action(self, widget: QWidget):
         self.actions.addWidget(widget)
+
+TAB_LABELS_TR = {
+    "project": "Proje", "foundation": "Temel", "options": "Analiz Ayarları",
+    "study": "Parametrik Çalışma", "soil": "Zemin Tabakaları",
+    "tests": "Deneyler", "site": "Saha Verileri", "spt": "SPT Verileri",
+    "cpt": "CPT Verileri", "vs": "Kayma Dalgası", "intact": "Sağlam Kaya",
+    "mass": "Kaya Kütlesi", "lab": "Laboratuvar", "pile": "Kazık",
+    "socket": "Kaya Soketi", "structure": "Yapısal Sistem", "anchors": "Ankrajlar",
+    "layout": "Yerleşim", "layers": "Tabakalar", "types": "Donatı Türleri",
+    "wall": "Duvar", "concrete": "Betonarme", "heights": "Duvar Yükseklikleri",
+    "screening": "Kinematik Tarama", "bolts": "Kaya Bulonları", "report": "Rapor",
+}
+KINEMATIC_MODES_TR = {"planar": "Düzlemsel", "wedge": "Kama", "toppling": "Devrilme"}
+
+
+def section_title(section: str, language: str) -> str:
+    """Shared localized tab captions; input keys and computations are unchanged."""
+    if section.startswith("equilibrium:"):
+        mode = section.split(":", 1)[1]
+        suffix = KINEMATIC_MODES_TR.get(mode, mode.title()) if language == "tr" else mode.title()
+        return f"Denge · {suffix}" if language == "tr" else f"Equilibrium · {suffix}"
+    if language == "tr":
+        return TAB_LABELS_TR.get(section, section.replace("_", " ").title())
+    return section.replace("_", " ").title()

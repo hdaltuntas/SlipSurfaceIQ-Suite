@@ -48,7 +48,7 @@ from slipsurface.apps import APPS, get
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.theme import stylesheet
-from slipsurface.desktop.widgets import ModuleHeader
+from slipsurface.desktop.widgets import ModuleHeader, section_title
 
 LOG = logging.getLogger(__name__)
 
@@ -248,6 +248,10 @@ class ModulePage(QWidget):
         right = QTabWidget()
         self.result_text = QTextEdit()
         self.result_text.setReadOnly(True)
+        self.result_text.setPlaceholderText(
+            "Hesaplama çıktıları bu panelde görüntülenir." if language == "tr"
+            else "Analysis results will appear here."
+        )
         right.addTab(self.result_text, "Sonuçlar" if language == "tr" else "Results")
         plot_panel = QWidget()
         figure_layout = QVBoxLayout(plot_panel)
@@ -261,7 +265,10 @@ class ModulePage(QWidget):
         figure_layout.addLayout(figure_bar)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        self.plot_label = QLabel("Run an analysis to see figures.")
+        self.plot_label = QLabel(
+            "Grafik oluşturmak için analizi çalıştırın."
+            if language == "tr" else "Run an analysis to see figures."
+        )
         self.plot_label.setAlignment(Qt.AlignCenter)
         self.plot_label.setMinimumHeight(400)
         scroll.setWidget(self.plot_label)
@@ -280,10 +287,10 @@ class ModulePage(QWidget):
                 continue
             if name == "equilibrium" and self.key == "kinematic":
                 for mode, section in specification.items():
-                    self._add_section(f"Equilibrium · {mode}", section, mode)
+                    self._add_section(section_title(f"equilibrium:{mode}", self.language), section, mode)
                 continue
             if isinstance(specification, dict):
-                self._add_section(name.replace("_", " ").title(), specification, name)
+                self._add_section(section_title(name, self.language), specification, name)
 
     def _add_section(self, title: str, section: dict, name: str):
         page = QWidget()

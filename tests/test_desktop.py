@@ -10,6 +10,7 @@ from slipsurface.desktop.app import MainWindow, ModulePage, _conditions_match, _
 from slipsurface.desktop.home import module_description
 from slipsurface.desktop.icons import ICON_DIR, module_icon
 from slipsurface.desktop.theme import stylesheet
+from slipsurface.desktop.widgets import section_title
 
 
 def test_visibility_predicates():
@@ -147,3 +148,11 @@ def test_shared_module_headers_are_consistent_and_accessible():
     finally:
         window.close()
     assert app is not None
+
+def test_standardized_tab_titles():
+    assert section_title("foundation", "tr") == "Temel"
+    assert section_title("options", "tr") == "Analiz Ayarları"
+    assert section_title("equilibrium:planar", "tr") == "Denge · Düzlemsel"
+    assert section_title("equilibrium:wedge", "en") == "Equilibrium · Wedge"
+    assert section_title("cpt", "tr") == "CPT Verileri"
+    assert section_title("study", "en") == "Study"
