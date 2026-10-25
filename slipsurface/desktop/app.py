@@ -1065,7 +1065,7 @@ class MainWindow(QMainWindow):
 
         try:
             installer.confirm_release(key)
-        except OSError:
+        except (OSError, installer.InstallError):
             # The new module is already working; a locked backup can be
             # cleaned on the next update rather than reversing a good upgrade.
             LOG.warning("Could not remove old release after successful first launch", exc_info=True)
