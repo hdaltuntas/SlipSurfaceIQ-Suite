@@ -47,6 +47,7 @@ from PySide6.QtWidgets import (
 from slipsurface import APP_NAME, __version__
 from slipsurface import apps as app_catalogue
 from slipsurface.apps import forms_path, get, session_path
+from slipsurface.contract import satisfies_contract
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.profiles import profile
@@ -54,7 +55,6 @@ from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.updater import load_available_updates
 from slipsurface.desktop.widgets import ModuleHeader, section_title
-from slipsurface.contract import satisfies_contract
 
 LOG = logging.getLogger(__name__)
 
