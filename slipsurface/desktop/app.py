@@ -125,28 +125,45 @@ class AnalysisTask(QRunnable):
 
 
 class DataTable(QWidget):
-    """Editable row-oriented model tables, independent of legacy web widgets."""
+    """Native soil/test/anchor/reinforcement input grid with typed editors.
 
-    def __init__(self, specification: dict, rows: list, parent=None):
+    Choice columns store the engine's internal values, not translated labels.
+    Duplicate/insert/delete operations retain the original project schema.
+    """
+
+    def __init__(self, specification: dict, rows: list, parent=None, language="tr"):
         super().__init__(parent)
         self.columns = specification.get("columns", [])
+        self.language = language
         self.table = QTableWidget(self)
+        self.table.setObjectName("suiteInputTable")
         self.table.setColumnCount(len(self.columns))
         self.table.setHorizontalHeaderLabels([
             str(c.get("label", c.get("key", ""))) for c in self.columns
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.Interactive)
+        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
         self.table.horizontalHeader().setStretchLastSection(True)
-        self.table.setMinimumHeight(230)
-        add = QPushButton("+ Row")
-        remove = QPushButton("− Row")
-        add.clicked.connect(lambda: self.table.insertRow(self.table.rowCount()))
+        self.table.verticalHeader().setVisible(True)
+        self.table.setAlternatingRowColors(True)
+        self.table.setMinimumHeight(245)
+
+        add = QPushButton("+ Satır" if language == "tr" else "+ Row")
+        add.setObjectName("suiteAddRow")
+        duplicate = QPushButton("Çoğalt" if language == "tr" else "Duplicate")
+        duplicate.setObjectName("suiteDuplicateRow")
+        remove = QPushButton("Sil" if language == "tr" else "Remove")
+        remove.setObjectName("suiteRemoveRow")
+        add.clicked.connect(self.add_row)
+        duplicate.clicked.connect(self.duplicate_selected)
         remove.clicked.connect(self.remove_selected)
         bar = QHBoxLayout()
         bar.addWidget(add)
+        bar.addWidget(duplicate)
         bar.addWidget(remove)
-        bar.addStretch()
+        bar.addStretch(1)
+
         layout = QVBoxLayout(self)
+        layout.setContentsMargins(9, 8, 9, 8)
         note = specification.get("note")
         if note:
             label = QLabel(str(note))
@@ -156,23 +173,52 @@ class DataTable(QWidget):
         layout.addLayout(bar)
         self.set_rows(rows)
 
+    def _append_row(self, row: dict):
+        index = self.table.rowCount()
+        self.table.insertRow(index)
+        for col, spec in enumerate(self.columns):
+            key = spec.get("key", "")
+            kind = spec.get("kind", "text")
+            value = row.get(key, "")
+            if kind == "select" and spec.get("options"):
+                editor = QComboBox()
+                for option in spec["options"]:
+                    editor.addItem(str(option.get("label", option.get("value", ""))),
+                                   option.get("value"))
+                found = editor.findData(value)
+                if found >= 0:
+                    editor.setCurrentIndex(found)
+                self.table.setCellWidget(index, col, editor)
+            elif kind == "check":
+                editor = QCheckBox()
+                editor.setChecked(bool(value))
+                self.table.setCellWidget(index, col, editor)
+            else:
+                item = QTableWidgetItem("" if value is None else str(value))
+                item.setToolTip(str(spec.get("label", key)))
+                self.table.setItem(index, col, item)
+
+    def add_row(self):
+        self._append_row({})
+        self.table.setCurrentCell(self.table.rowCount() - 1, 0)
+
+    def duplicate_selected(self):
+        index = self.table.currentRow()
+        if index < 0:
+            return
+        source = self.rows()[index]
+        self._append_row(source)
+        self.table.setCurrentCell(self.table.rowCount() - 1, 0)
+
     def remove_selected(self):
-        row = self.table.currentRow()
-        if row >= 0:
-            self.table.removeRow(row)
+        index = self.table.currentRow()
+        if index >= 0:
+            self.table.removeRow(index)
 
     def set_rows(self, rows: list):
         self.table.setRowCount(0)
         for row in rows:
-            index = self.table.rowCount()
-            self.table.insertRow(index)
-            if not isinstance(row, dict):
-                continue
-            for col, specification in enumerate(self.columns):
-                key = specification.get("key", "")
-                value = row.get(key, "")
-                item = QTableWidgetItem("" if value is None else str(value))
-                self.table.setItem(index, col, item)
+            self._append_row(row if isinstance(row, dict) else {})
 
     def rows(self) -> list[dict]:
         result = []
@@ -182,21 +228,30 @@ class DataTable(QWidget):
                 key = specification.get("key", "")
                 if not key:
                     continue
-                item = self.table.item(index, col)
-                text = item.text().strip() if item else ""
                 kind = specification.get("kind", "text")
+                editor = self.table.cellWidget(index, col)
+                if kind == "select" and isinstance(editor, QComboBox):
+                    row[key] = editor.currentData()
+                    continue
+                if kind == "check" and isinstance(editor, QCheckBox):
+                    row[key] = editor.isChecked()
+                    continue
+                item = self.table.item(index, col)
+                value = item.text().strip() if item else ""
                 if kind == "number":
-                    if text:
+                    if value:
                         try:
-                            row[key] = float(text.replace(",", "."))
+                            row[key] = float(value.replace(",", "."))
                         except ValueError as exc:
-                            raise ValueError(f"Row {index + 1}: {key} must be numeric") from exc
+                            raise ValueError(
+                                f"Row {index + 1}: {key} must be numeric"
+                            ) from exc
                     else:
                         row[key] = 0.0
                 elif kind == "check":
-                    row[key] = text.lower() in ("true", "1", "yes", "evet")
+                    row[key] = value.lower() in ("true", "1", "yes", "evet")
                 else:
-                    row[key] = text
+                    row[key] = value
             result.append(row)
         return result
 
@@ -329,7 +384,7 @@ class ModulePage(QWidget):
             initial = self.data.get(
                 data_key, section.get("joints", section.get("rows", []))
             )
-            table = DataTable(section, initial)
+            table = DataTable(section, initial, language=self.language)
             self.tables[data_key] = table
             column.addWidget(table)
         column.addStretch(1)
