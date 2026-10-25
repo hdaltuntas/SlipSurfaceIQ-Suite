@@ -84,6 +84,28 @@ class Session:
         self.job_detail = ""
         self.job_note = ""
 
+    # Shared native Suite session contract. Existing specialised public
+    # methods (screen/equilibrium/plot/report) are preserved.
+    def meta(self) -> dict:
+        return {"schema": forms.schema(), "defaults": forms.defaults(), "figures": ["main"]}
+
+    def analyse(self, values: dict) -> dict:
+        mode = values.get("analysis_mode", "screening")
+        if mode in ("planar", "wedge", "toppling"):
+            return self.equilibrium(mode, values)
+        return self.screen(values)
+
+    def project_file(self, values: dict) -> dict:
+        return {"format": "slipsurface-kinematic-suite", "values": dict(values)}
+
+    def load_project(self, payload: dict) -> dict:
+        if not isinstance(payload, dict) or payload.get("format") != "slipsurface-kinematic-suite":
+            raise ValueError("Not a Kinematic Suite project")
+        values = payload.get("values")
+        if not isinstance(values, dict):
+            raise ValueError("Kinematic project values must be a mapping")
+        return {"ok": True, "values": {**forms.defaults(), **values}}
+
     # ------------------------------------------------------------------ dil
     def set_language(self, lang: str) -> str:
         set_language(lang)

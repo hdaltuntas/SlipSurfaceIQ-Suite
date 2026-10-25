@@ -24,6 +24,7 @@ Standard library only; run from the repository root.
 """
 from __future__ import annotations
 
+import hashlib
 import json
 import sys
 import zipfile
@@ -66,7 +67,21 @@ def build(key: str, out_dir: Path, version: str | None = None) -> Path:
             relative = path.relative_to(source)
             if relative == Path("app.json"):
                 continue
-            archive.write(path, f"{top}/slipsurface_{key}/" + relative.as_posix())
+            archived_path = f"{top}/slipsurface_{key}/" + relative.as_posix()
+            if relative == Path("__init__.py"):
+                # A stand-alone top-level package cannot import a parent via
+                # "from .. import __version__"; use this module's release
+                # version, independent from the Suite's core version.
+                source_code = path.read_text(encoding="utf-8")
+                old_version = "from .. import __version__ as __version__"
+                if old_version not in source_code:
+                    raise ValueError(f"Unsupported package initializer: {path}")
+                rewritten = source_code.replace(
+                    old_version, f'__version__ = "{version}"', 1
+                )
+                archive.writestr(archived_path, rewritten)
+            else:
+                archive.write(path, archived_path)
     return archive_path
 
 
@@ -81,7 +96,8 @@ def main(argv: list[str]) -> int:
             return 2
         archive = build(key, ROOT / "dist")
         manifest = json.loads((ROOT / "slipsurface" / key / "app.json").read_text(encoding="utf-8"))
-        print(f"built {archive}")
+        digest = hashlib.sha256(archive.read_bytes()).hexdigest()
+        print(f"built {archive} (sha256={digest})")
         print("  catalogue entry:")
         print(json.dumps({
             key: {
@@ -89,6 +105,7 @@ def main(argv: list[str]) -> int:
                 "changelog": "",
                 "requires_core": manifest["requires_core"],
                 "url": f"https://example.com/{archive.name}",
+                "sha256": digest,
             }
         }, ensure_ascii=False, indent=2))
         print("  demonstration flow: python scripts/demo_update.py" + (f" --key {key}" if keys else ""))

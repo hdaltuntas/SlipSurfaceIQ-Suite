@@ -24,6 +24,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 import sys
 from importlib.metadata import entry_points
 from pathlib import Path
@@ -42,6 +43,7 @@ __all__ = [
 
 #: The ``importlib.metadata`` group a plugin registers its manifest under
 ENTRY_POINT_GROUP = "slipsurface.apps"
+_KEY = re.compile(r"[a-z][a-z0-9_]*\Z")
 
 #: Where per-module release archives are unpacked; an environment override
 #: exists for tests and portable installations.
@@ -78,7 +80,7 @@ def load_manifest(data) -> dict:
         value = data.get(field)
         if not isinstance(value, str) or not value.strip():
             raise ManifestError(f"manifest field {field!r} is missing or empty")
-    if not data["key"].isidentifier():
+    if not _KEY.fullmatch(data["key"]):
         raise ManifestError(f"manifest key {data['key']!r} is not an identifier")
     try:
         parse(data["version"])
@@ -149,6 +151,11 @@ def _installed_manifests(apps_root: Path | None = None) -> list[dict]:
         try:
             manifest = load_manifest(json.loads(manifest_path.read_text(encoding="utf-8")))
         except (OSError, json.JSONDecodeError, ManifestError):
+            continue
+        key = manifest["key"]
+        if manifest.get("session") != f"slipsurface_{key}.web.session":
+            continue
+        if directory.is_symlink():
             continue
         location = str(directory)
         if location not in sys.path:

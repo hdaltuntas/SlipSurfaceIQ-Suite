@@ -51,6 +51,7 @@ class AppUpdate:
     requires_core: str = ""
     core_ok: bool = True
     url: str = ""
+    sha256: str = ""
 
     @property
     def update_available(self) -> bool:
@@ -98,6 +99,7 @@ def check(index: dict, apps: tuple[App, ...] = None, core: str = CORE_VERSION) -
             requires_core=requires_core,
             core_ok=is_compatible(core, requires_core),
             url=record.get("url", "") if isinstance(record, dict) else "",
+            sha256=record.get("sha256", "") if isinstance(record, dict) else "",
         )
     return updates
 

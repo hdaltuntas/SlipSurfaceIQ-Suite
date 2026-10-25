@@ -1,194 +1,234 @@
-"""Per-module release installation: download one application archive, unpack it, make it win.
+"""Verified single-module installation with path checks and rollback.
 
-A release archive is a plain ZIP built by ``scripts/build_module_dist.py``
-from one application directory. Its layout is::
-
-    <key>-<version>/                 (a single top folder, or entries at the root)
-        app.json                     the manifest of the new release
-        slipsurface_<key>/           the application package, importable as-is
-
-``install_release`` downloads the archive named in a release catalogue
-record, checks it against the catalogue and against this core's version,
-and unpacks it into the user applications directory
-(``~/.slipsurface/apps/<key>/`` by default). From the next discovery pass
-onward the installed release overrides the bundled module of the same key,
-without touching the Suite installation itself — no write access to the
-program directory, no pip, no restart of the shell beyond refreshing the
-catalogue.
-
-The whole module is standard-library only and Qt-free, and the download
-step is injectable so the installer is fully testable offline.
+The caller must provide SHA-256 for a trusted release catalogue. A digest
+protects bytes in transit but does not make unknown Python code trustworthy.
 """
 from __future__ import annotations
 
+import hashlib
 import io
 import json
+import re
 import shutil
+import stat
 import tempfile
+import urllib.parse
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath, PureWindowsPath
 
 from slipsurface import CORE_VERSION
 from slipsurface.registry import USER_APPS_DIR, load_manifest
 from slipsurface.versioning import is_compatible
 
-__all__ = [
-    "InstallError",
-    "install_release",
-    "uninstall",
-    "installed_keys",
-    "download",
-]
+__all__ = ["InstallError", "install_release", "uninstall", "installed_keys", "download"]
 
-#: Refuse archives larger than this before reading them into memory
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
+MAX_UNPACKED_BYTES = 1024 * 1024 * 1024
+MAX_ENTRY_BYTES = 256 * 1024 * 1024
+MAX_ENTRIES = 20000
+MAX_MANIFEST_BYTES = 65536
+_SAFE_KEY = re.compile(r"[a-z][a-z0-9_]*\Z")
+_SHA256 = re.compile(r"[0-9a-fA-F]{64}\Z")
 
 
 class InstallError(RuntimeError):
-    """A release that cannot be downloaded, unpacked or accepted."""
+    """Unsafe or incompatible module release."""
+
+
+def _key(value: object) -> str:
+    if not isinstance(value, str) or not _SAFE_KEY.fullmatch(value):
+        raise InstallError(f"invalid application key: {value!r}")
+    return value
+
+
+def _url(value: object) -> str:
+    url = str(value or "").strip()
+    parsed = urllib.parse.urlsplit(url)
+    if parsed.scheme not in ("https", "file"):
+        raise InstallError("release URL must use HTTPS or an explicit local file URL")
+    if parsed.scheme == "https" and not parsed.hostname:
+        raise InstallError("HTTPS release URL must specify a host")
+    if parsed.scheme == "file" and parsed.netloc not in ("", "localhost"):
+        raise InstallError("file URL must refer to a local path")
+    if parsed.username or parsed.password:
+        raise InstallError("release URL cannot contain user credentials")
+    return url
 
 
 def download(url: str, timeout: float = 30.0) -> bytes:
-    """Read a release archive into memory, refusing unbounded responses."""
-    request = urllib.request.Request(url, headers={"User-Agent": "SlipSurfaceIQ-Suite"})
+    """Download bounded bytes from HTTPS or an intentional offline file URL."""
+    request = urllib.request.Request(_url(url), headers={"User-Agent": "SlipSurfaceIQ-Suite"})
     with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
         data = response.read(MAX_ARCHIVE_BYTES + 1)
     if len(data) > MAX_ARCHIVE_BYTES:
-        raise InstallError(f"release archive is larger than {MAX_ARCHIVE_BYTES} bytes: {url}")
+        raise InstallError("compressed release archive exceeds size limit")
     return data
 
 
 def _check_archive_names(archive: zipfile.ZipFile) -> None:
-    for name in archive.namelist():
-        candidate = Path(name)
-        if candidate.is_absolute() or ".." in candidate.parts or name.startswith("\\"):
-            raise InstallError(f"unsafe path in release archive: {name}")
+    infos = archive.infolist()
+    if len(infos) > MAX_ENTRIES:
+        raise InstallError("release archive contains too many entries")
+    unpacked = 0
+    seen = set()
+    for info in infos:
+        name = info.filename
+        parts = PurePosixPath(name).parts
+        if (
+            not name or "\x00" in name or "\\" in name
+            or name.startswith("/") or PureWindowsPath(name).is_absolute()
+            or ":" in name or any(part in ("", ".", "..") for part in name.rstrip("/").split("/"))
+        ):
+            raise InstallError(f"unsafe path in release archive: {name!r}")
+        folded = "/".join(parts).casefold()
+        if folded in seen:
+            raise InstallError(f"duplicate release archive entry: {name}")
+        seen.add(folded)
+        kind = stat.S_IFMT(info.external_attr >> 16)
+        if kind not in (0, stat.S_IFREG, stat.S_IFDIR):
+            raise InstallError(f"symlinks and special files are not allowed: {name}")
+        if info.file_size > MAX_ENTRY_BYTES:
+            raise InstallError(f"oversized file in release archive: {name}")
+        unpacked += info.file_size
+        if unpacked > MAX_UNPACKED_BYTES:
+            raise InstallError("release archive expands beyond size limit")
 
 
 def _locate_manifest(archive: zipfile.ZipFile) -> tuple[dict, str]:
-    """Find the manifest inside the archive and its root directory.
-
-    Accepted layouts: ``app.json`` at the archive root, or inside one single
-    top-level folder. Everything unpacks relative to that root.
-    """
     names = archive.namelist()
     if "app.json" in names:
         root = ""
     else:
-        tops = sorted({name.split("/", 1)[0] for name in names if name.strip()})
+        tops = sorted({name.split("/", 1)[0] for name in names})
         if len(tops) != 1:
-            raise InstallError("release archive must contain app.json at its root or in one folder")
+            raise InstallError("release archive must contain one top-level directory")
         root = f"{tops[0]}/"
+    if any(not name.startswith(root) for name in names):
+        raise InstallError("release archive contains files outside its root")
     try:
-        data = archive.read(f"{root}app.json")
+        entry = archive.getinfo(f"{root}app.json")
+        if entry.file_size > MAX_MANIFEST_BYTES:
+            raise InstallError("release manifest is too large")
+        data = archive.read(entry)
         manifest = load_manifest(json.loads(data.decode("utf-8")))
-    except (KeyError, UnicodeDecodeError, json.JSONDecodeError) as error:
-        raise InstallError(f"release archive has no valid app.json: {error}") from error
+    except (KeyError, UnicodeDecodeError, json.JSONDecodeError, ValueError) as error:
+        raise InstallError(f"invalid release manifest: {error}") from error
     return manifest, root
 
 
 def _extract(archive: zipfile.ZipFile, root: str, destination: Path) -> None:
     destination.mkdir(parents=True, exist_ok=True)
-    for name in archive.namelist():
-        if not name.startswith(root):
-            continue
-        relative = name[len(root):]
-        if not relative or relative.endswith("/"):
+    total = 0
+    for info in archive.infolist():
+        if not info.filename.startswith(root):
+            raise InstallError(f"release path escapes root: {info.filename}")
+        relative = info.filename[len(root):].rstrip("/")
+        if not relative:
             continue
         target = destination.joinpath(*relative.split("/"))
+        if info.is_dir():
+            target.mkdir(parents=True, exist_ok=True)
+            continue
         target.parent.mkdir(parents=True, exist_ok=True)
-        with archive.open(name) as source, open(target, "wb") as sink:
-            shutil.copyfileobj(source, sink)
+        count = 0
+        with archive.open(info) as source, open(target, "xb") as sink:
+            while True:
+                chunk = source.read(1024 * 1024)
+                if not chunk:
+                    break
+                count += len(chunk)
+                total += len(chunk)
+                if count > MAX_ENTRY_BYTES or total > MAX_UNPACKED_BYTES:
+                    raise InstallError("extracted release exceeds size limit")
+                sink.write(chunk)
 
 
 def install_release(
-    record,
-    apps_root: Path | str | None = None,
-    core: str = CORE_VERSION,
-    fetch=None,
+    record, apps_root: Path | str | None = None, core: str = CORE_VERSION, fetch=None
 ) -> dict:
-    """Download and install one release; returns its validated manifest.
-
-    ``record`` is the release-catalogue entry: ``key``, ``version`` and
-    ``url`` are required, ``requires_core`` optional. The archive must
-    describe exactly the key and version the catalogue announced, and the
-    release must accept this core version. Installation replaces any
-    previously installed release of the same key atomically enough for a
-    single-user desktop tool: the new tree is unpacked beside the old one
-    and swapped in, and the old tree is deleted afterwards.
-    """
+    """Verify a release then replace one user-installed module with rollback."""
     if not isinstance(record, dict):
         raise InstallError("release record must be a mapping")
-    key = str(record.get("key", "")).strip()
-    version = str(record.get("version", "")).strip()
-    url = str(record.get("url", "")).strip()
-    if not key or not version or not url:
-        raise InstallError("release record needs key, version and url")
+    key = _key(record.get("key"))
+    version = str(record.get("version") or "").strip()
+    url = _url(record.get("url"))
+    digest = record.get("sha256")
+    if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
+        raise InstallError("release catalogue must provide a 64-character SHA-256 checksum")
     if not is_compatible(core, record.get("requires_core", "")):
-        raise InstallError(f"release {key} {version} needs a newer core than {core}")
-
+        raise InstallError(f"release {key} {version} requires a newer core")
     archive_bytes = (fetch or download)(url)
+    if not isinstance(archive_bytes, bytes) or len(archive_bytes) > MAX_ARCHIVE_BYTES:
+        raise InstallError("release payload is not bounded bytes")
+    if hashlib.sha256(archive_bytes).hexdigest() != digest.lower():
+        raise InstallError("release archive checksum does not match the catalogue")
+
     root_dir = Path(apps_root) if apps_root is not None else USER_APPS_DIR
     destination = root_dir / key
-
-    with tempfile.TemporaryDirectory(prefix=f"slipsurface-{key}-") as staging:
-        staged = Path(staging) / "release"
-        try:
-            with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
-                _check_archive_names(archive)
-                manifest, root = _locate_manifest(archive)
-                if manifest["key"] != key:
-                    raise InstallError(
-                        f"release archive describes {manifest['key']!r}, not {key!r}"
-                    )
-                if manifest["version"] != version:
-                    raise InstallError(
-                        f"release archive is {manifest['version']}, catalogue announced {version}"
-                    )
-                if not is_compatible(core, manifest.get("requires_core", "")):
-                    raise InstallError(
-                        f"release {key} {version} needs a newer core than {core}"
-                    )
+    backup = root_dir / f"{key}.previous"
+    try:
+        with zipfile.ZipFile(io.BytesIO(archive_bytes)) as archive:
+            _check_archive_names(archive)
+            manifest, root = _locate_manifest(archive)
+            if manifest["key"] != key:
+                raise InstallError(f"release describes {manifest['key']!r}, not {key!r}")
+            if manifest["version"] != version:
+                raise InstallError("release version differs from the catalogue")
+            if not is_compatible(core, manifest.get("requires_core", "")):
+                raise InstallError("release manifest requires an incompatible core")
+            if manifest.get("session") != f"slipsurface_{key}.web.session":
+                raise InstallError("release manifest must name the module session")
+            required = {
+                f"{root}slipsurface_{key}/__init__.py",
+                f"{root}slipsurface_{key}/web/session.py",
+            }
+            if not required.issubset(archive.namelist()):
+                raise InstallError("release archive lacks expected Python package files")
+            root_dir.mkdir(parents=True, exist_ok=True)
+            if destination.is_symlink() or backup.is_symlink():
+                raise InstallError("cannot replace symbolic links")
+            if backup.exists():
+                raise InstallError("previous backup exists; resolve it before updating")
+            with tempfile.TemporaryDirectory(prefix=f".{key}-staging-", dir=root_dir) as temp:
+                staged = Path(temp) / "release"
                 _extract(archive, root, staged)
-        except zipfile.BadZipFile as error:
-            raise InstallError(f"release archive is not a valid ZIP: {error}") from error
-
-        root_dir.mkdir(parents=True, exist_ok=True)
-        previous = None
-        if destination.exists():
-            previous = destination.with_name(f"{key}.previous")
-            if previous.exists():
-                shutil.rmtree(previous)
-            destination.rename(previous)
-        try:
-            staged.rename(destination)
-        except OSError:
-            if previous is not None:
-                previous.rename(destination)
-            raise
-        if previous is not None:
-            shutil.rmtree(previous, ignore_errors=True)
+                had_previous = destination.exists()
+                if had_previous:
+                    destination.rename(backup)
+                try:
+                    staged.rename(destination)
+                except OSError:
+                    if had_previous:
+                        backup.rename(destination)
+                    raise
+                if had_previous:
+                    shutil.rmtree(backup)
+    except (zipfile.BadZipFile, EOFError) as error:
+        raise InstallError(f"invalid release ZIP: {error}") from error
     return manifest
 
 
 def uninstall(key: str, apps_root: Path | str | None = None) -> bool:
-    """Remove an installed release; the bundled module becomes active again."""
+    """Remove only a validated application directory below the app root."""
+    key = _key(key)
     root_dir = Path(apps_root) if apps_root is not None else USER_APPS_DIR
     destination = root_dir / key
+    if destination.is_symlink():
+        raise InstallError("cannot uninstall a symbolic link")
     if not destination.is_dir():
         return False
-    shutil.rmtree(destination, ignore_errors=True)
+    shutil.rmtree(destination)
     return not destination.exists()
 
 
 def installed_keys(apps_root: Path | str | None = None) -> list[str]:
-    """Keys of the releases currently installed in the user directory."""
     root_dir = Path(apps_root) if apps_root is not None else USER_APPS_DIR
     if not root_dir.is_dir():
         return []
     return sorted(
-        directory.name
-        for directory in root_dir.iterdir()
-        if (directory / "app.json").is_file()
+        directory.name for directory in root_dir.iterdir()
+        if _SAFE_KEY.fullmatch(directory.name)
+        and not directory.is_symlink()
+        and (directory / "app.json").is_file()
     )

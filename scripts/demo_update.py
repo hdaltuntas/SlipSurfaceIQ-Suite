@@ -9,7 +9,7 @@ the network:
 
     python scripts/demo_update.py               # demo release for pile
     python scripts/demo_update.py --key wall    # any other module
-    python scripts/demo_update.py --revert       # remove the demo catalogue
+    python scripts/demo_update.py --revert       # revert pile catalogue and module
 
 What happens on the screen:
 
@@ -28,6 +28,7 @@ is preserved as ``index.json.bak`` and restored by ``--revert``.
 from __future__ import annotations
 
 import argparse
+import hashlib
 import json
 import sys
 from pathlib import Path
@@ -47,7 +48,37 @@ def _next_patch(version: str) -> str:
     return f"{major}.{minor}.{patch + 1}"
 
 
-def _revert() -> int:
+def _revert(key: str) -> int:
+    """Restore the prior catalogue and undo an identified local demo install."""
+    import urllib.parse
+    import urllib.request
+
+    from slipsurface.installer import uninstall, installed_keys
+    from slipsurface.registry import USER_APPS_DIR
+
+    if CATALOGUE.exists():
+        try:
+            records = json.loads(CATALOGUE.read_text(encoding="utf-8"))
+        except (OSError, ValueError):
+            records = {}
+        record = records.get(key, {}) if isinstance(records, dict) else {}
+        url = record.get("url", "") if isinstance(record, dict) else ""
+        parsed = urllib.parse.urlsplit(url)
+        demo_path = Path(urllib.request.url2pathname(parsed.path)).resolve()
+        if (
+            parsed.scheme == "file"
+            and demo_path.is_relative_to((ROOT / "dist").resolve())
+            and key in installed_keys(USER_APPS_DIR)
+        ):
+            manifest_file = USER_APPS_DIR / key / "app.json"
+            try:
+                installed = json.loads(manifest_file.read_text(encoding="utf-8"))
+            except (OSError, ValueError):
+                installed = {}
+            if installed.get("version") == record.get("version"):
+                uninstall(key, apps_root=USER_APPS_DIR)
+                print(f"removed demonstration module {key}")
+
     backup = CATALOGUE.with_name(f"{CATALOGUE.name}.bak")
     if CATALOGUE.exists():
         CATALOGUE.unlink()
@@ -70,13 +101,14 @@ def main(argv: list[str] | None = None) -> int:
     arguments = parser.parse_args(argv)
 
     if arguments.revert:
-        return _revert()
+        return _revert(arguments.key)
 
     manifest = json.loads(
         (ROOT / "slipsurface" / arguments.key / "app.json").read_text(encoding="utf-8")
     )
     demo_version = _next_patch(manifest["version"])
     archive = build(arguments.key, ROOT / "dist", version=demo_version)
+    digest = hashlib.sha256(archive.read_bytes()).hexdigest()
 
     record = {
         arguments.key: {
@@ -85,6 +117,7 @@ def main(argv: list[str] | None = None) -> int:
             or f"Demonstration release {demo_version} for the update flow.",
             "requires_core": manifest["requires_core"],
             "url": archive.resolve().as_uri(),
+            "sha256": digest,
         }
     }
 
@@ -110,6 +143,7 @@ def main(argv: list[str] | None = None) -> int:
             "requires_core": manifest["requires_core"],
             "url": f"https://github.com/hdaltuntas/SlipSurfaceIQ-Suite/"
                    f"releases/download/v{demo_version}/{archive.name}",
+            "sha256": digest,
         }
     }, ensure_ascii=False, indent=2))
     return 0

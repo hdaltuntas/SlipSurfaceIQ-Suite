@@ -15,5 +15,5 @@ def module_icon(key: str) -> QIcon:
     get(key)  # validate registry key before resolving a filesystem path
     path = ICON_DIR / f"{key}.svg"
     if not path.is_file():
-        raise FileNotFoundError(f"Missing icon for {key}: {path}")
+        path = ICON_DIR / "generic.svg"
     return QIcon(str(path))
