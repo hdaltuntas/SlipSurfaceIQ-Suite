@@ -199,6 +199,10 @@ QPushButton#suiteSpecialAction { background: #2f4969; color: #e2eeff;
 # styles so all ten existing engineering editors keep their sizing/behavior.
 _BRAND_LIGHT = """
 QWidget { font-family: "Segoe UI"; }
+QLabel#suiteHomeEyebrow, QLabel#suiteHomeHeading, QLabel#suiteHomeSubtitle,
+QLabel#suiteToolbarMark, QLabel#suiteToolbarBrand, QLabel#suiteResultsHeading {
+    background: transparent; border: none;
+}
 QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #EFF5FD; }
 QMainWindow, QSplitter { background: #EFF5FD; }
 QLabel#suiteHomeEyebrow { color: #4B47C1; font-size: 10px; font-weight: 700; }
@@ -253,6 +257,10 @@ QFrame#suiteResultCard { background: #FFFFFF; border: 1px solid #D3E0EF;
 
 _BRAND_DARK = """
 QWidget { font-family: "Segoe UI"; }
+QLabel#suiteHomeEyebrow, QLabel#suiteHomeHeading, QLabel#suiteHomeSubtitle,
+QLabel#suiteToolbarMark, QLabel#suiteToolbarBrand, QLabel#suiteResultsHeading {
+    background: transparent; border: none;
+}
 QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #0B1529; }
 QMainWindow, QSplitter, QScrollArea { background: #0B1529; }
 QMenuBar, QMenu { background: #12223B; color: #EFF5FF; }
