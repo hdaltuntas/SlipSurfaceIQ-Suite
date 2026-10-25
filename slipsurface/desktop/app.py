@@ -33,6 +33,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSplitter,
+    QStackedWidget,
     QTableWidget,
     QTableWidgetItem,
     QTabWidget,
@@ -43,6 +44,7 @@ from PySide6.QtWidgets import (
 
 from slipsurface import APP_NAME, __version__
 from slipsurface.apps import APPS, get
+from slipsurface.desktop.home import HomePage
 
 LOG = logging.getLogger(__name__)
 
@@ -69,6 +71,21 @@ QGroupBox { border: 1px solid #cbd5e3; border-radius: 5px; margin-top: 14px;
             padding-top: 8px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; }
 QToolTip { background: white; color: #19263a; }
+
+QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #f6f8fc; }
+QLabel#suiteHomeEyebrow { color: #3264a2; font-weight: 700; font-size: 11px; letter-spacing: 1px; }
+QLabel#suiteHomeHeading { color: #182d49; font-size: 29px; font-weight: 750; }
+QLabel#suiteHomeSubtitle { color: #536781; font-size: 14px; }
+QFrame#suiteModuleCard { background: #ffffff; border: 1px solid #ced9e6; border-radius: 13px; }
+QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #2c70bf; background: #fafdff; }
+QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
+QLabel#suiteCardCategory { color: #376eaa; font-size: 10px; font-weight: 700; }
+QLabel#suiteCardTitle { color: #192d49; font-size: 17px; font-weight: 700; }
+QLabel#suiteCardDescription { color: #586a81; font-size: 12px; }
+QPushButton#suiteCardLaunch { background: #eaf2ff; color: #14549e; border: 1px solid #cadef6; padding: 5px 13px; font-weight: 650; }
+QPushButton#suiteCardLaunch:hover { background: #d2e5ff; }
+QPushButton#suiteHomeBack { background: #eaf2ff; color: #14549e; border: 1px solid #cadef6; font-weight: 650; }
+
 """
 
 DARK = """
@@ -94,6 +111,21 @@ QGroupBox { border: 1px solid #4b607b; border-radius: 5px; margin-top: 14px;
             padding-top: 8px; font-weight: 600; }
 QGroupBox::title { subcontrol-origin: margin; left: 10px; }
 QToolTip { background: #30415a; color: white; }
+
+QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #1a2331; }
+QLabel#suiteHomeEyebrow { color: #87b6fc; font-weight: 700; font-size: 11px; letter-spacing: 1px; }
+QLabel#suiteHomeHeading { color: #f2f6fd; font-size: 29px; font-weight: 750; }
+QLabel#suiteHomeSubtitle { color: #adbed4; font-size: 14px; }
+QFrame#suiteModuleCard { background: #26354a; border: 1px solid #425873; border-radius: 13px; }
+QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #82b6ff; background: #2d4058; }
+QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
+QLabel#suiteCardCategory { color: #95c3ff; font-size: 10px; font-weight: 700; }
+QLabel#suiteCardTitle { color: #f0f5fc; font-size: 17px; font-weight: 700; }
+QLabel#suiteCardDescription { color: #b4c5dc; font-size: 12px; }
+QPushButton#suiteCardLaunch { background: #354e70; color: #e0edff; border: 1px solid #54729d; padding: 5px 13px; font-weight: 650; }
+QPushButton#suiteCardLaunch:hover { background: #446a9d; }
+QPushButton#suiteHomeBack { background: #354e70; color: #e0edff; border: 1px solid #54729d; font-weight: 650; }
+
 """
 
 
@@ -569,7 +601,7 @@ class ModulePage(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, language="tr", theme="light", initial_app="bearing"):
+    def __init__(self, language="tr", theme="light", initial_app=None):
         super().__init__()
         self.language = language
         self.theme = theme
@@ -578,14 +610,35 @@ class MainWindow(QMainWindow):
         self.resize(1480, 900)
         self.setMinimumSize(950, 600)
         self._create_actions()
+
+        # The launchpad occupies the full window until the user picks a module.
+        self.stack = QStackedWidget()
+        self.home = HomePage(language)
+        self.home.module_selected.connect(self.open_module)
+        self.stack.addWidget(self.home)
+
+        self.workspace = QWidget()
+        workspace_layout = QVBoxLayout(self.workspace)
+        workspace_layout.setContentsMargins(9, 8, 9, 8)
+        workspace_layout.setSpacing(8)
+        navigation = QHBoxLayout()
+        self.back_button = QPushButton(
+            "‹  Tüm programlar" if language == "tr" else "‹  All applications"
+        )
+        self.back_button.setObjectName("suiteHomeBack")
+        self.back_button.clicked.connect(self.show_home)
+        navigation.addWidget(self.back_button)
+        navigation.addStretch(1)
+        workspace_layout.addLayout(navigation)
+
         layout = QSplitter(Qt.Horizontal)
         self.navigator = QListWidget()
         self.navigator.setMinimumWidth(180)
         self.navigator.setMaximumWidth(285)
-        for app in APPS:
-            item = QListWidgetItem(app.tr if language == "tr" else app.name)
-            item.setData(Qt.UserRole, app.key)
-            item.setToolTip(app.description)
+        for module in APPS:
+            item = QListWidgetItem(module.tr if language == "tr" else module.name)
+            item.setData(Qt.UserRole, module.key)
+            item.setToolTip(module.description_tr if language == "tr" else module.description)
             self.navigator.addItem(item)
         self.navigator.currentItemChanged.connect(self._navigate)
         layout.addWidget(self.navigator)
@@ -593,12 +646,14 @@ class MainWindow(QMainWindow):
         self.view.setTabsClosable(False)
         layout.addWidget(self.view)
         layout.setStretchFactor(1, 1)
-        self.setCentralWidget(layout)
-        self.statusBar().showMessage("Ready")
+        workspace_layout.addWidget(layout)
+        self.stack.addWidget(self.workspace)
+        self.setCentralWidget(self.stack)
+
         self.set_theme(theme)
-        matching = next((i for i in range(self.navigator.count()) if
-                         self.navigator.item(i).data(Qt.UserRole) == initial_app), 0)
-        self.navigator.setCurrentRow(matching)
+        self.show_home()
+        if initial_app is not None:
+            self.open_module(initial_app)
 
     def _create_actions(self):
         file_menu = self.menuBar().addMenu("Dosya" if self.language == "tr" else "File")
@@ -608,21 +663,35 @@ class MainWindow(QMainWindow):
             ("Kaydet…" if self.language == "tr" else "Save…", self.save_project, "Ctrl+S"),
             ("PDF aktar…" if self.language == "tr" else "Export PDF…", self.export_pdf, "Ctrl+E"),
         ]
+        self.project_actions = []
         for title, callback, shortcut in actions:
             action = QAction(title, self)
             action.setShortcut(shortcut)
             action.triggered.connect(callback)
             file_menu.addAction(action)
+            self.project_actions.append(action)
         file_menu.addSeparator()
         exit_action = QAction("Çıkış" if self.language == "tr" else "Exit", self)
         exit_action.triggered.connect(self.close)
         file_menu.addAction(exit_action)
-        view = self.menuBar().addMenu("Görünüm" if self.language == "tr" else "View")
-        theme_action = QAction("Aydınlık / Karanlık" if self.language == "tr"
-                               else "Light / Dark", self)
+
+        view_menu = self.menuBar().addMenu("Görünüm" if self.language == "tr" else "View")
+        home_action = QAction("Ana ekran" if self.language == "tr" else "Home", self)
+        home_action.setShortcut("Alt+Home")
+        home_action.triggered.connect(self.show_home)
+        view_menu.addAction(home_action)
+        theme_action = QAction(
+            "Aydınlık / Karanlık" if self.language == "tr" else "Light / Dark", self
+        )
         theme_action.triggered.connect(
-            lambda: self.set_theme("dark" if self.theme == "light" else "light"))
-        view.addAction(theme_action)
+            lambda: self.set_theme("dark" if self.theme == "light" else "light")
+        )
+        view_menu.addAction(theme_action)
+
+    def _sync_actions(self):
+        enabled = self.current_page() is not None
+        for action in self.project_actions:
+            action.setEnabled(enabled)
 
     def set_theme(self, theme: str):
         self.theme = "dark" if theme == "dark" else "light"
@@ -631,7 +700,27 @@ class MainWindow(QMainWindow):
             if hasattr(page.session, "set_theme"):
                 page.session.set_theme(self.theme)
 
-    def _navigate(self, current, _):
+    def show_home(self):
+        self.stack.setCurrentWidget(self.home)
+        self.statusBar().showMessage(
+            "Program seçin" if self.language == "tr" else "Choose an application"
+        )
+        self._sync_actions()
+
+    def open_module(self, key: str):
+        """Open a card's module, retaining existing page state on return."""
+        if key not in {module.key for module in APPS}:
+            raise KeyError(f"Unknown module: {key}")
+        for index in range(self.navigator.count()):
+            item = self.navigator.item(index)
+            if item.data(Qt.UserRole) == key:
+                if self.navigator.currentRow() != index:
+                    self.navigator.setCurrentRow(index)
+                else:
+                    self._navigate(item, None)
+                return
+
+    def _navigate(self, current, _previous):
         if current is None:
             return
         key = current.data(Qt.UserRole)
@@ -647,9 +736,13 @@ class MainWindow(QMainWindow):
             self.pages[key] = page
             self.view.addTab(page, get(key).name)
         self.view.setCurrentWidget(self.pages[key])
+        self.stack.setCurrentWidget(self.workspace)
         self.statusBar().showMessage(f"Module: {get(key).name}")
+        self._sync_actions()
 
     def current_page(self):
+        if self.stack.currentWidget() is not self.workspace:
+            return None
         widget = self.view.currentWidget()
         return widget if isinstance(widget, ModulePage) else None
 
@@ -662,8 +755,9 @@ class MainWindow(QMainWindow):
         page = self.current_page()
         if not page:
             return
-        filename, _ = QFileDialog.getOpenFileName(self, "Open project", "",
-                                                   "JSON projects (*.json);;All files (*)")
+        filename, _ = QFileDialog.getOpenFileName(
+            self, "Open project", "", "JSON projects (*.json);;All files (*)"
+        )
         if filename:
             try:
                 page.open_project(filename)
@@ -676,7 +770,8 @@ class MainWindow(QMainWindow):
         if not page:
             return
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Save project", f"{page.key}-project.json", "JSON projects (*.json)")
+            self, "Save project", f"{page.key}-project.json", "JSON projects (*.json)"
+        )
         if filename:
             try:
                 page.save_project(filename)
@@ -689,7 +784,8 @@ class MainWindow(QMainWindow):
         if not page:
             return
         filename, _ = QFileDialog.getSaveFileName(
-            self, "Export PDF", f"{page.key}-report.pdf", "PDF files (*.pdf)")
+            self, "Export PDF", f"{page.key}-report.pdf", "PDF files (*.pdf)"
+        )
         if filename:
             try:
                 page.export_pdf(filename)
@@ -698,11 +794,13 @@ class MainWindow(QMainWindow):
                 QMessageBox.warning(self, "Could not export PDF", str(error))
 
 
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="SlipSurfaceIQ Suite native PySide6 desktop")
     parser.add_argument("--lang", choices=("tr", "en"), default="tr")
     parser.add_argument("--theme", choices=("light", "dark"), default="light")
-    parser.add_argument("--app", choices=[a.key for a in APPS], default="bearing")
+    parser.add_argument("--app", choices=[a.key for a in APPS], default=None,
+                        help="Open a module directly instead of the home dashboard")
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setStyle("Fusion")
