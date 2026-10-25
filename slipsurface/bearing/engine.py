@@ -30,7 +30,7 @@ from typing import Any, Dict, List, Optional, Tuple
 
 import numpy as np
 
-from ..common import factors as F
+from slipsurface.common import factors as F
 from . import capacity as cap
 from . import insitu, layered, rock, seismic
 from .config import (

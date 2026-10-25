@@ -12,7 +12,8 @@ records, e.g.::
         "pile": {
             "version": "1.1.0",
             "changelog": "Socket side resistance correlations added.",
-            "requires_core": ">=0.1.0"
+            "requires_core": ">=0.1.0",
+            "url": "https://example.com/pile-1.1.0.zip"
         }
     }
 
@@ -49,6 +50,7 @@ class AppUpdate:
     changelog: str = ""
     requires_core: str = ""
     core_ok: bool = True
+    url: str = ""
 
     @property
     def update_available(self) -> bool:
@@ -95,6 +97,7 @@ def check(index: dict, apps: tuple[App, ...] = None, core: str = CORE_VERSION) -
             changelog=record.get("changelog", "") if isinstance(record, dict) else "",
             requires_core=requires_core,
             core_ok=is_compatible(core, requires_core),
+            url=record.get("url", "") if isinstance(record, dict) else "",
         )
     return updates
 

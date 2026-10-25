@@ -26,7 +26,7 @@ from __future__ import annotations
 import math
 from typing import Dict
 
-from ..common import factors as F
+from slipsurface.common import factors as F
 
 __all__ = ["effective_area", "contact_pressure", "ultimate", "sliding_resistance",
            "wedge_depth", "wedge_geometry"]

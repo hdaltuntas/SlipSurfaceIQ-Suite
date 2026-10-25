@@ -26,7 +26,7 @@ import numpy as np
 from matplotlib.figure import Figure
 from matplotlib.patches import Polygon, Rectangle
 
-from ..common.factors import bearing_factors
+from slipsurface.common.factors import bearing_factors
 from .capacity import wedge_geometry
 from .config import METHOD_COLORS, PLOT_PALETTE, SOIL_FILL
 from .i18n import TRANSLATIONS
