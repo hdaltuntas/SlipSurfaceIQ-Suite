@@ -55,6 +55,29 @@ from slipsurface.desktop.widgets import ModuleHeader, section_title
 LOG = logging.getLogger(__name__)
 
 
+def _say(language: str, en: str, tr: str) -> str:
+    """One user-facing string in the interface language."""
+    return tr if language == "tr" else en
+
+
+def _number(text: str) -> float:
+    """Parse a number typed into a table cell, tolerating a decimal comma.
+
+    A lone ',' is a decimal comma ('1,5' becomes 1.5). When both separators
+    appear, the rightmost one is taken as the decimal and the other as a
+    thousands separator, so '1.234,5' and '1,234.5' both mean 1234.5.
+    """
+    cleaned = text.strip().replace("\u00a0", "")
+    if "," in cleaned and "." in cleaned:
+        if cleaned.rfind(",") > cleaned.rfind("."):
+            cleaned = cleaned.replace(".", "").replace(",", ".")
+        else:
+            cleaned = cleaned.replace(",", "")
+    else:
+        cleaned = cleaned.replace(",", ".")
+    return float(cleaned)
+
+
 def _conditions_match(record: dict, values: dict) -> bool:
     """Interpret the three versions of existing schema visibility conditions."""
     shapes = record.get("shapes")
@@ -247,11 +270,14 @@ class DataTable(QWidget):
                 if kind == "number":
                     if value:
                         try:
-                            row[key] = float(value.replace(",", "."))
+                            row[key] = _number(value)
                         except ValueError as exc:
-                            raise ValueError(
-                                f"Row {index + 1}: {key} must be numeric"
-                            ) from exc
+                            message = _say(
+                                self.language,
+                                f"Row {index + 1}: {key} must be numeric",
+                                f"Satır {index + 1}: {key} alanı sayısal olmalı",
+                            )
+                            raise ValueError(message) from exc
                     else:
                         row[key] = 0.0
                 elif kind == "check":
@@ -420,14 +446,16 @@ class ModulePage(QWidget):
             result = self.session.generate(self.current_values())
             layers = result["layers"]
             if not isinstance(layers, list):
-                raise ValueError("Invalid layer layout")
+                raise ValueError(_say(self.language, "Invalid layer layout",
+                                      "Geçersiz katman düzeni"))
             self.tables["layers"].set_rows(layers)
             for i in range(self.input_tabs.count()):
                 if self.input_tabs.tabText(i) == section_title("layers", self.language):
                     self.input_tabs.setCurrentIndex(i)
                     break
         except (ValueError, KeyError, TypeError) as error:
-            QMessageBox.warning(self, "Layer generation", str(error))
+            QMessageBox.warning(
+                self, _say(self.language, "Layer generation", "Katman üretimi"), str(error))
 
     def _suggest_dimensions(self):
         if self.key != "wall":
@@ -442,13 +470,18 @@ class ModulePage(QWidget):
             self.apply_values(values)
             self._update_section_hint()
         except (ValueError, KeyError, TypeError) as error:
-            QMessageBox.warning(self, "Suggested dimensions", str(error))
+            QMessageBox.warning(
+                self, _say(self.language, "Suggested dimensions", "Boyut önerisi"),
+                str(error))
 
     def _export_correlation(self, target: str):
         if self.key != "correlation":
             return
         if self.last_result is None:
-            QMessageBox.warning(self, "Export", "Run the correlation analysis first.")
+            QMessageBox.warning(
+                self, _say(self.language, "Export", "Dışa aktar"),
+                _say(self.language, "Run the correlation analysis first.",
+                     "Önce korelasyon analizini çalıştırın."))
             return
         path, _ = QFileDialog.getSaveFileName(
             self, "Export project", f"{target}-from-correlation.json",
@@ -460,7 +493,8 @@ class ModulePage(QWidget):
                 with open(path, "w", encoding="utf-8") as stream:
                     json.dump(payload, stream, ensure_ascii=False, indent=2, allow_nan=False)
             except (ValueError, OSError, TypeError) as error:
-                QMessageBox.warning(self, "Export", str(error))
+                QMessageBox.warning(
+                    self, _say(self.language, "Export", "Dışa aktar"), str(error))
 
     def _build_input_tabs(self):
         schema = self.metadata.get("schema", {})
@@ -554,17 +588,30 @@ class ModulePage(QWidget):
             return widget.currentData()
         return widget.text()
 
+    def _widget_for(self, key: str):
+        """The widget that currently speaks for a field.
+
+        A field may occur in several kinematic modes; the active mode's
+        widget is preferred, so a field is never read from, or its
+        visibility judged by, another mode's editor.
+        """
+        widgets = self.fields.get(key)
+        if not widgets:
+            return None
+        chosen = widgets[0][0]
+        if self.mode is not None:
+            active_mode = self.mode.currentText()
+            matching = [w for w, section in widgets if section.endswith(active_mode)]
+            if matching:
+                chosen = matching[-1]
+        return chosen
+
     def current_values(self) -> dict:
         values = copy.deepcopy(self.data)
-        active_mode = self.mode.currentText() if self.mode else None
-        for key, widgets in self.fields.items():
-            # Fields may occur in multiple kinematic modes. Prefer current mode.
-            chosen = widgets[0][0]
-            if active_mode:
-                matching = [w for w, section in widgets if section.endswith(active_mode)]
-                if matching:
-                    chosen = matching[-1]
-            values[key] = self._read_widget(chosen)
+        for key in self.fields:
+            chosen = self._widget_for(key)
+            if chosen is not None:
+                values[key] = self._read_widget(chosen)
         for key, table in self.tables.items():
             values[key] = table.rows()
         return values
@@ -573,9 +620,10 @@ class ModulePage(QWidget):
         if not hasattr(self, "conditional"):
             return
         values = copy.deepcopy(self.data)
-        for key, widgets in self.fields.items():
-            if widgets:
-                values[key] = self._read_widget(widgets[0][0])
+        for key in self.fields:
+            chosen = self._widget_for(key)
+            if chosen is not None:
+                values[key] = self._read_widget(chosen)
         for label, field, specification in self.conditional:
             visible = _conditions_match(specification, values)
             label.setVisible(visible)
@@ -609,7 +657,8 @@ class ModulePage(QWidget):
         try:
             values = self.current_values()
         except ValueError as error:
-            QMessageBox.warning(self, "Invalid input", str(error))
+            QMessageBox.warning(self, _say(self.language, "Invalid input",
+                                           "Geçersiz girdi"), str(error))
             return
         self.data = copy.deepcopy(values)
         self.busy = True
@@ -619,12 +668,15 @@ class ModulePage(QWidget):
             button.setEnabled(False)
         self.result_text.setPlainText("Hesaplanıyor…" if self.language == "tr"
                                       else "Calculating…")
+        # Qt widgets belong to the GUI thread: read everything the worker
+        # needs here, before the operation runs on the thread pool.
+        active_mode = self.mode.currentText() if self.mode is not None else None
 
         def operation():
             if self.key == "kinematic":
-                mode = self.mode.currentText()
-                return self.session.screen(values) if mode == "screening" else \
-                    self.session.equilibrium(mode, values)
+                if active_mode == "screening":
+                    return self.session.screen(values)
+                return self.session.equilibrium(active_mode, values)
             if self._pending_plot_target == "socket":
                 return self.session.analyse_socket(values)
             return self.session.analyse(values)
@@ -641,12 +693,16 @@ class ModulePage(QWidget):
         self._task = None
         if error:
             self.overview.dashboard.clear_results()
-            self.result_text.setPlainText("Analysis failed:\n" + error)
-            QMessageBox.warning(self, "Analysis error", error)
+            self.result_text.setPlainText(
+                _say(self.language, "Analysis failed:\n", "Analiz başarısız oldu:\n") + error)
+            QMessageBox.warning(self, _say(self.language, "Analysis error",
+                                           "Analiz hatası"), error)
             return
         if isinstance(result, dict) and result.get("ok") is False:
             self.overview.dashboard.clear_results()
-            self.result_text.setPlainText(str(result.get("error", "Analysis not completed")))
+            self.result_text.setPlainText(str(result.get(
+                "error", _say(self.language, "Analysis not completed",
+                              "Analiz tamamlanmadı"))))
             return
         self.last_result = result
         self._plot_target = self._pending_plot_target
@@ -681,7 +737,8 @@ class ModulePage(QWidget):
                 data = self.session.plot(self._plot_target, kind)
             pixmap = QPixmap()
             if not pixmap.loadFromData(data, "PNG"):
-                raise ValueError("Invalid PNG returned from analysis")
+                raise ValueError(_say(self.language, "Invalid PNG returned from analysis",
+                                       "Analizden geçersiz PNG döndü"))
             self.plot_label.setPixmap(pixmap.scaledToWidth(min(1000, pixmap.width()),
                                                            Qt.SmoothTransformation))
         except Exception as error:
@@ -703,7 +760,8 @@ class ModulePage(QWidget):
             payload = json.load(stream)
         if self.key == "kinematic":
             if payload.get("format") != "slipsurface-kinematic-suite":
-                raise ValueError("Not a Kinematic Suite project")
+                raise ValueError(_say(self.language, "Not a Kinematic Suite project",
+                                      "Bu dosya bir Kinematic Suite projesi değil"))
             values = payload["values"]
         else:
             loaded = self.session.load_project(payload)
@@ -711,12 +769,14 @@ class ModulePage(QWidget):
                 raise ValueError(str(loaded.get("error")))
             values = loaded["values"]
         if not isinstance(values, dict):
-            raise TypeError("Project contents are invalid")
+            raise TypeError(_say(self.language, "Project contents are invalid",
+                                 "Proje içeriği geçersiz"))
         self.apply_values(values)
 
     def export_pdf(self, path: str):
         if self.last_result is None:
-            raise ValueError("First run an analysis")
+            raise ValueError(_say(self.language, "First run an analysis",
+                                  "Önce bir analiz çalıştırın"))
         if self.key == "kinematic":
             kind = "screening" if self.mode.currentText() == "screening" else "equilibrium"
             self.session.report(kind, path)
@@ -870,7 +930,9 @@ class MainWindow(QMainWindow):
                     page.session.set_theme(self.theme)
             except Exception as error:
                 LOG.exception("Failed to load module %s", key)
-                QMessageBox.critical(self, "Module load error", f"{key}: {error}")
+                QMessageBox.critical(
+                    self, _say(self.language, "Module load error", "Modül yükleme hatası"),
+                    f"{key}: {error}")
                 return
             self.pages[key] = page
             self.view.addTab(page, module_icon(key), get(key).name)
@@ -902,7 +964,9 @@ class MainWindow(QMainWindow):
                 page.open_project(filename)
                 self.statusBar().showMessage(f"Opened: {filename}")
             except Exception as error:
-                QMessageBox.warning(self, "Could not open project", str(error))
+                QMessageBox.warning(
+                    self, _say(self.language, "Could not open project", "Proje açılamadı"),
+                    str(error))
 
     def save_project(self):
         page = self.current_page()
@@ -916,7 +980,9 @@ class MainWindow(QMainWindow):
                 page.save_project(filename)
                 self.statusBar().showMessage(f"Saved: {filename}")
             except Exception as error:
-                QMessageBox.warning(self, "Could not save project", str(error))
+                QMessageBox.warning(
+                    self, _say(self.language, "Could not save project", "Proje kaydedilemedi"),
+                    str(error))
 
     def export_pdf(self):
         page = self.current_page()
@@ -930,7 +996,9 @@ class MainWindow(QMainWindow):
                 page.export_pdf(filename)
                 self.statusBar().showMessage(f"PDF exported: {filename}")
             except Exception as error:
-                QMessageBox.warning(self, "Could not export PDF", str(error))
+                QMessageBox.warning(
+                    self, _say(self.language, "Could not export PDF", "PDF dışa aktarılamadı"),
+                    str(error))
 
 
 
