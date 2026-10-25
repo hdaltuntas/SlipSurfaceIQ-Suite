@@ -21,6 +21,7 @@ from PySide6.QtWidgets import (
     QDoubleSpinBox,
     QFileDialog,
     QFormLayout,
+    QFrame,
     QGroupBox,
     QHBoxLayout,
     QHeaderView,
@@ -45,88 +46,11 @@ from PySide6.QtWidgets import (
 from slipsurface import APP_NAME, __version__
 from slipsurface.apps import APPS, get
 from slipsurface.desktop.home import HomePage
+from slipsurface.desktop.icons import module_icon
+from slipsurface.desktop.theme import stylesheet
+from slipsurface.desktop.widgets import ModuleHeader
 
 LOG = logging.getLogger(__name__)
-
-LIGHT = """
-QWidget { background: #f6f8fc; color: #19263a; font-size: 12px; }
-QMainWindow, QSplitter, QScrollArea, QTabWidget::pane { background: #f6f8fc; }
-QMenuBar, QMenu { background: #ffffff; color: #19263a; }
-QMenuBar::item:selected, QMenu::item:selected { background: #dce8fc; color: #10203c; }
-QPushButton { background: #ecf2fb; color: #152743; border: 1px solid #b9c8db;
-              border-radius: 5px; padding: 7px 13px; }
-QPushButton:hover { background: #d4e4fb; }
-QPushButton:disabled { color: #7d8997; background: #e8ecf2; }
-QLineEdit, QDoubleSpinBox, QComboBox, QTableWidget, QTextEdit {
-    color: #162537; background: #ffffff; border: 1px solid #c3cddb;
-    border-radius: 4px; padding: 3px;
-}
-QListWidget { color: #1a2941; background: #edf2f9; border: none; }
-QListWidget::item { padding: 9px; }
-QListWidget::item:selected { color: #ffffff; background: #225eaa; }
-QHeaderView::section { background: #e7edf7; color: #1a2941; padding: 5px; }
-QTabBar::tab { background: #e7edf6; color: #283b54; padding: 8px 12px; }
-QTabBar::tab:selected { background: #ffffff; color: #12549f; }
-QGroupBox { border: 1px solid #cbd5e3; border-radius: 5px; margin-top: 14px;
-            padding-top: 8px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 10px; }
-QToolTip { background: white; color: #19263a; }
-
-QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #f6f8fc; }
-QLabel#suiteHomeEyebrow { color: #3264a2; font-weight: 700; font-size: 11px; letter-spacing: 1px; }
-QLabel#suiteHomeHeading { color: #182d49; font-size: 29px; font-weight: 750; }
-QLabel#suiteHomeSubtitle { color: #536781; font-size: 14px; }
-QFrame#suiteModuleCard { background: #ffffff; border: 1px solid #ced9e6; border-radius: 13px; }
-QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #2c70bf; background: #fafdff; }
-QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
-QLabel#suiteCardCategory { color: #376eaa; font-size: 10px; font-weight: 700; }
-QLabel#suiteCardTitle { color: #192d49; font-size: 17px; font-weight: 700; }
-QLabel#suiteCardDescription { color: #586a81; font-size: 12px; }
-QPushButton#suiteCardLaunch { background: #eaf2ff; color: #14549e; border: 1px solid #cadef6; padding: 5px 13px; font-weight: 650; }
-QPushButton#suiteCardLaunch:hover { background: #d2e5ff; }
-QPushButton#suiteHomeBack { background: #eaf2ff; color: #14549e; border: 1px solid #cadef6; font-weight: 650; }
-
-"""
-
-DARK = """
-QWidget { background: #1a2331; color: #e8eef8; font-size: 12px; }
-QMainWindow, QSplitter, QScrollArea, QTabWidget::pane { background: #1a2331; }
-QMenuBar, QMenu { background: #242f41; color: #edf3fa; }
-QMenuBar::item:selected, QMenu::item:selected { background: #385277; color: white; }
-QPushButton { background: #2d405b; color: #eff5fc; border: 1px solid #4b6383;
-              border-radius: 5px; padding: 7px 13px; }
-QPushButton:hover { background: #40608a; }
-QPushButton:disabled { color: #8a9bac; background: #2a3544; }
-QLineEdit, QDoubleSpinBox, QComboBox, QTableWidget, QTextEdit {
-    color: #f1f5fb; background: #243247; border: 1px solid #4b607b;
-    border-radius: 4px; padding: 3px;
-}
-QListWidget { color: #e6eef8; background: #222f41; border: none; }
-QListWidget::item { padding: 9px; }
-QListWidget::item:selected { color: white; background: #2f609b; }
-QHeaderView::section { background: #314158; color: #edf3fa; padding: 5px; }
-QTabBar::tab { background: #2a3c52; color: #dbe6f4; padding: 8px 12px; }
-QTabBar::tab:selected { background: #405b7e; color: white; }
-QGroupBox { border: 1px solid #4b607b; border-radius: 5px; margin-top: 14px;
-            padding-top: 8px; font-weight: 600; }
-QGroupBox::title { subcontrol-origin: margin; left: 10px; }
-QToolTip { background: #30415a; color: white; }
-
-QWidget#suiteHomeBody, QScrollArea#suiteHomeScroll { background: #1a2331; }
-QLabel#suiteHomeEyebrow { color: #87b6fc; font-weight: 700; font-size: 11px; letter-spacing: 1px; }
-QLabel#suiteHomeHeading { color: #f2f6fd; font-size: 29px; font-weight: 750; }
-QLabel#suiteHomeSubtitle { color: #adbed4; font-size: 14px; }
-QFrame#suiteModuleCard { background: #26354a; border: 1px solid #425873; border-radius: 13px; }
-QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #82b6ff; background: #2d4058; }
-QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
-QLabel#suiteCardCategory { color: #95c3ff; font-size: 10px; font-weight: 700; }
-QLabel#suiteCardTitle { color: #f0f5fc; font-size: 17px; font-weight: 700; }
-QLabel#suiteCardDescription { color: #b4c5dc; font-size: 12px; }
-QPushButton#suiteCardLaunch { background: #354e70; color: #e0edff; border: 1px solid #54729d; padding: 5px 13px; font-weight: 650; }
-QPushButton#suiteCardLaunch:hover { background: #446a9d; }
-QPushButton#suiteHomeBack { background: #354e70; color: #e0edff; border: 1px solid #54729d; font-weight: 650; }
-
-"""
 
 
 def _conditions_match(record: dict, values: dict) -> bool:
@@ -301,20 +225,19 @@ class ModulePage(QWidget):
         self._task = None
 
         root = QVBoxLayout(self)
-        toolbar = QHBoxLayout()
-        title = QLabel(get(key).tr if language == "tr" else get(key).name)
-        title.setStyleSheet("font-size: 19px; font-weight: 650;")
-        toolbar.addWidget(title)
-        toolbar.addStretch()
+        root.setContentsMargins(10, 9, 10, 9)
+        root.setSpacing(10)
+        self.header = ModuleHeader(key, language)
         self.mode = None
         if key == "kinematic":
             self.mode = QComboBox()
             self.mode.addItems(["screening", "planar", "wedge", "toppling"])
-            toolbar.addWidget(self.mode)
+            self.header.add_action(self.mode)
         self.run_button = QPushButton("Hesapla" if language == "tr" else "Analyze")
+        self.run_button.setObjectName("suiteAnalyzeAction")
         self.run_button.clicked.connect(self.analyze)
-        toolbar.addWidget(self.run_button)
-        root.addLayout(toolbar)
+        self.header.add_action(self.run_button)
+        root.addWidget(self.header)
 
         work = QSplitter(Qt.Horizontal)
         self.input_tabs = QTabWidget()
@@ -621,7 +544,11 @@ class MainWindow(QMainWindow):
         workspace_layout = QVBoxLayout(self.workspace)
         workspace_layout.setContentsMargins(9, 8, 9, 8)
         workspace_layout.setSpacing(8)
-        navigation = QHBoxLayout()
+        navigation_frame = QFrame()
+        navigation_frame.setObjectName("suiteWorkspaceToolbar")
+        navigation = QHBoxLayout(navigation_frame)
+        navigation.setContentsMargins(12, 7, 12, 7)
+        navigation.setSpacing(7)
         self.back_button = QPushButton(
             "‹  Tüm programlar" if language == "tr" else "‹  All applications"
         )
@@ -629,7 +556,16 @@ class MainWindow(QMainWindow):
         self.back_button.clicked.connect(self.show_home)
         navigation.addWidget(self.back_button)
         navigation.addStretch(1)
-        workspace_layout.addLayout(navigation)
+        for caption, callback in (
+            ("Yeni" if language == "tr" else "New", self.new_project),
+            ("Aç" if language == "tr" else "Open", self.open_project),
+            ("Kaydet" if language == "tr" else "Save", self.save_project),
+            ("PDF", self.export_pdf),
+        ):
+            button = QPushButton(caption)
+            button.clicked.connect(callback)
+            navigation.addWidget(button)
+        workspace_layout.addWidget(navigation_frame)
 
         layout = QSplitter(Qt.Horizontal)
         self.navigator = QListWidget()
@@ -639,6 +575,7 @@ class MainWindow(QMainWindow):
             item = QListWidgetItem(module.tr if language == "tr" else module.name)
             item.setData(Qt.UserRole, module.key)
             item.setToolTip(module.description_tr if language == "tr" else module.description)
+            item.setIcon(module_icon(module.key))
             self.navigator.addItem(item)
         self.navigator.currentItemChanged.connect(self._navigate)
         layout.addWidget(self.navigator)
@@ -695,7 +632,7 @@ class MainWindow(QMainWindow):
 
     def set_theme(self, theme: str):
         self.theme = "dark" if theme == "dark" else "light"
-        QApplication.instance().setStyleSheet(DARK if self.theme == "dark" else LIGHT)
+        QApplication.instance().setStyleSheet(stylesheet(self.theme))
         for page in self.pages.values():
             if hasattr(page.session, "set_theme"):
                 page.session.set_theme(self.theme)
@@ -734,7 +671,7 @@ class MainWindow(QMainWindow):
                 QMessageBox.critical(self, "Module load error", f"{key}: {error}")
                 return
             self.pages[key] = page
-            self.view.addTab(page, get(key).name)
+            self.view.addTab(page, module_icon(key), get(key).name)
         self.view.setCurrentWidget(self.pages[key])
         self.stack.setCurrentWidget(self.workspace)
         self.statusBar().showMessage(f"Module: {get(key).name}")

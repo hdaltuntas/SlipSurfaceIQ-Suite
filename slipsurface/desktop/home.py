@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from slipsurface.apps import APPS, App
+from slipsurface.desktop.icons import module_icon
 
 
 def module_description(app: App, language: str) -> str:
@@ -32,7 +33,7 @@ class ModuleCard(QFrame):
         self.module = module
         self.setObjectName("suiteModuleCard")
         self.setProperty("moduleKey", module.key)
-        self.setMinimumSize(245, 166)
+        self.setMinimumSize(245, 192)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -55,6 +56,12 @@ class ModuleCard(QFrame):
         category.setObjectName("suiteCardCategory")
         top.addWidget(category)
         top.addStretch()
+        self.icon_label = QLabel()
+        self.icon_label.setObjectName("suiteCardIcon")
+        self.icon_label.setAlignment(Qt.AlignCenter)
+        self.icon_label.setFixedSize(54, 54)
+        self.icon_label.setPixmap(module_icon(module.key).pixmap(40, 40))
+        top.addWidget(self.icon_label)
         content.addLayout(top)
 
         title = QLabel(name)
