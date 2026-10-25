@@ -37,7 +37,7 @@ class BrandSplash(QSplashScreen):
         background.setColorAt(0, QColor(PALETTE["midnight"]))
         background.setColorAt(0.66, QColor("#08101F"))
         background.setColorAt(1, QColor("#130D2F"))
-        painter.fillRect(canvas.rect(), background)
+        painter.fillRect(canvas.rect(), QBrush(background))
 
         for x, y, radius, color in (
             (170, 220, 260, QColor(0, 221, 245, 45)),
@@ -46,7 +46,7 @@ class BrandSplash(QSplashScreen):
             bloom = QRadialGradient(QPointF(x, y), radius)
             bloom.setColorAt(0, color)
             bloom.setColorAt(1, QColor(0, 0, 0, 0))
-            painter.fillRect(canvas.rect(), bloom)
+            painter.fillRect(canvas.rect(), QBrush(bloom))
 
         # Wireframe ground contours: engineering geometry, not decorative dots.
         painter.setPen(QPen(QColor(35, 140, 255, 80), 1.0))
@@ -59,8 +59,10 @@ class BrandSplash(QSplashScreen):
             for start, end in zip(points, points[1:]):
                 painter.drawLine(start, end)
         for x in range(45, 900, 42):
-            painter.drawLine(x, 393 + 50 * math.sin(x / 142),
-                             x + 35, 468)
+            painter.drawLine(
+                QPointF(float(x), 393.0 + 50.0 * math.sin(x / 142)),
+                QPointF(float(x + 35), 468.0),
+            )
 
         mark = symbol_icon().pixmap(186, 230)
         painter.drawPixmap(100, 91, mark)
