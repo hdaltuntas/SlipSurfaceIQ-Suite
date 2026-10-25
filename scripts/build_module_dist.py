@@ -37,15 +37,22 @@ MODULES = (
 SKIP_DIRS = {"__pycache__", ".git"}
 
 
-def build(key: str, out_dir: Path) -> Path:
+def build(key: str, out_dir: Path, version: str | None = None) -> Path:
+    """Write ``<out_dir>/<key>-<version>.zip`` and return its path.
+
+    ``version`` overrides the manifest version inside the archive only — the
+    source ``app.json`` stays untouched. ``scripts/demo_update.py`` uses this
+    to build a demonstration (or test) release without editing the tree.
+    """
     source = ROOT / "slipsurface" / key
     manifest_path = source / "app.json"
     if not manifest_path.is_file():
         raise SystemExit(f"no manifest for {key!r}: {manifest_path} is missing")
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    version = manifest["version"]
+    version = version or manifest["version"]
 
     manifest = dict(manifest)
+    manifest["version"] = version
     manifest["session"] = f"slipsurface_{key}.web.session"
 
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -84,6 +91,7 @@ def main(argv: list[str]) -> int:
                 "url": f"https://example.com/{archive.name}",
             }
         }, ensure_ascii=False, indent=2))
+        print("  demonstration flow: python scripts/demo_update.py" + (f" --key {key}" if keys else ""))
     return 0
 
 

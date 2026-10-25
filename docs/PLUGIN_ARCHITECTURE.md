@@ -184,6 +184,10 @@ Two conventions make the relocation work and both are already in place:
 - Modules address their own code relatively (`from ..engine import ...`),
   so the package works unchanged under the `slipsurface_<key>` name.
 
+The operator's side of the flow — catalogue format, publishing, and a
+script that rehearses the whole update offline — is documented separately
+in `docs/UPDATE_CATALOGUE.md` (`python scripts/demo_update.py`).
+
 ## When to actually split repositories
 
 Keep one repository while the applications share the core, ship together and
