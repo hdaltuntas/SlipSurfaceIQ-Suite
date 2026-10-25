@@ -29,9 +29,9 @@ def test_installed_real_archives_import_and_satisfy_contract(tmp_path):
         archive = build(key, tmp_path / "releases")
         raw = archive.read_bytes()
         with zipfile.ZipFile(archive) as zipped:
-            manifest = json.loads(zipped.read(f"{key}-1.0.0/app.json"))
+            manifest = json.loads(zipped.read(f"{key}-{module.version}/app.json"))
             source = zipped.read(
-                f"{key}-1.0.0/slipsurface_{key}/__init__.py"
+                f"{key}-{module.version}/slipsurface_{key}/__init__.py"
             ).decode("utf-8")
         assert "from .. import __version__" not in source
         assert manifest["session"] == f"slipsurface_{key}.web.session"
