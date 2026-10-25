@@ -36,6 +36,7 @@ QFrame#suiteModuleCard { background: #ffffff; border: 1px solid #ced9e6; border-
 QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #2c70bf; background: #fafdff; }
 QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
 QLabel#suiteCardCategory { color: #376eaa; font-size: 10px; font-weight: 700; }
+QLabel#suiteCardIcon { background: #eaf2ff; border: 1px solid #cadcf2; border-radius: 11px; }
 QLabel#suiteCardTitle { color: #192d49; font-size: 17px; font-weight: 700; }
 QLabel#suiteCardDescription { color: #586a81; font-size: 12px; }
 QPushButton#suiteCardLaunch { background: #eaf2ff; color: #14549e; border: 1px solid #cadef6; padding: 5px 13px; font-weight: 650; }
@@ -58,6 +59,7 @@ QGroupBox::title { left: 12px; padding: 0 5px; }
 QFrame#suiteWorkspaceToolbar { background: #ffffff; border: 1px solid #cdd9e8;
                                 border-radius: 10px; }
 QFrame#suiteWorkspaceToolbar QPushButton { min-height: 22px; }
+QPushButton#suiteAnalyzeAction { background: #2169bb; color: #ffffff; border-color: #16559c; font-weight: 700; padding: 9px 18px; }
 QTabWidget::pane { border: 1px solid #cdd9e8; border-radius: 4px; }
 QPushButton:focus { border: 2px solid #367ac8; }
 QListWidget::item:hover:!selected { background: #deebfa; }
@@ -96,6 +98,7 @@ QFrame#suiteModuleCard { background: #26354a; border: 1px solid #425873; border-
 QFrame#suiteModuleCard:hover, QFrame#suiteModuleCard:focus { border: 2px solid #82b6ff; background: #2d4058; }
 QFrame#suiteModuleCard QLabel { background: transparent; border: none; }
 QLabel#suiteCardCategory { color: #95c3ff; font-size: 10px; font-weight: 700; }
+QLabel#suiteCardIcon { background: #344762; border: 1px solid #537098; border-radius: 11px; }
 QLabel#suiteCardTitle { color: #f0f5fc; font-size: 17px; font-weight: 700; }
 QLabel#suiteCardDescription { color: #b4c5dc; font-size: 12px; }
 QPushButton#suiteCardLaunch { background: #354e70; color: #e0edff; border: 1px solid #54729d; padding: 5px 13px; font-weight: 650; }

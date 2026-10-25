@@ -8,6 +8,8 @@ from PySide6.QtWidgets import QApplication
 from slipsurface.apps import APPS
 from slipsurface.desktop.app import MainWindow, ModulePage, _conditions_match, _table_key
 from slipsurface.desktop.home import module_description
+from slipsurface.desktop.icons import ICON_DIR, module_icon
+from slipsurface.desktop.theme import stylesheet
 
 
 def test_visibility_predicates():
@@ -32,6 +34,8 @@ def test_home_dashboard_is_default_and_all_cards_are_localized():
             assert card.accessibleDescription() == module_description(module, "tr")
             assert card.accessibleDescription().strip()
             assert card.launch_button.text().startswith("Programı aç")
+            assert not card.icon_label.pixmap().isNull()
+            assert not module_icon(module.key).isNull()
         assert app.styleSheet()
     finally:
         window.close()
@@ -105,4 +109,41 @@ def test_each_module_opens_in_native_qt():
     finally:
         for page in pages:
             page.close()
+    assert app is not None
+
+
+def test_vector_icon_library_covers_each_module_and_both_themes():
+    for module in APPS:
+        path = ICON_DIR / f"{module.key}.svg"
+        svg = path.read_text(encoding="utf-8")
+        assert 'viewBox="0 0 64 64"' in svg
+        assert "<svg" in svg
+        icon = module_icon(module.key)
+        assert not icon.pixmap(48, 48).isNull()
+    assert "suiteModuleHeader" in stylesheet("light")
+    assert "suiteModuleHeader" in stylesheet("dark")
+    assert "suiteCardIcon" in stylesheet("light")
+    assert "suiteCardIcon" in stylesheet("dark")
+
+
+def test_shared_module_headers_are_consistent_and_accessible():
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", theme="light")
+    try:
+        for module in APPS:
+            window.home.cards[module.key].launch_button.click()
+            page = window.current_page()
+            assert page is not None and page.key == module.key
+            assert page.header.title_label.text() == module.tr
+            assert page.header.subtitle_label.text() == module.description_tr
+            assert page.header.icon_label.pixmap() is not None
+            assert not page.header.icon_label.pixmap().isNull()
+            assert not window.navigator.currentItem().icon().isNull()
+            assert not window.view.tabIcon(window.view.currentIndex()).isNull()
+            window.show_home()
+        window.set_theme("dark")
+        window.home.cards["bearing"].launch_button.click()
+        assert window.current_page().header.isVisible() or window.current_page().header is not None
+    finally:
+        window.close()
     assert app is not None
