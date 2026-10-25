@@ -20,7 +20,8 @@ A record names the new release and where its archive lives:
         "version": "1.0.1",
         "changelog": "Socket side resistance correlations added.",
         "requires_core": ">=0.1.0",
-        "url": "https://example.com/pile-1.0.1.zip"
+        "url": "https://example.com/pile-1.0.1.zip",
+        "sha256": "<published SHA-256 hex digest of the archive>"
     }
 }
 ```
@@ -30,7 +31,8 @@ A record names the new release and where its archive lives:
 | `version` | the new release; shown only if newer than the installed one |
 | `changelog` | shown on the update badge tooltip |
 | `requires_core` | the core the release needs; incompatible cores see a warning badge instead of a button |
-| `url` | the release archive; without it the update is announced but not installable |
+| `url` | HTTPS release ZIP, or a local file URL for offline tests |
+| `sha256` | Required 64-character hexadecimal SHA-256 digest of the exact archive bytes |
 
 ## Publishing a release
 
@@ -48,7 +50,7 @@ A record names the new release and where its archive lives:
 The launchpad shows a banner and one badge per module with a newer release,
 plus a Güncelle button on the module's card. Clicking it downloads the
 archive, checks it against the catalogue (same key, same version, a
-compatible core, safe paths) and unpacks it into `~/.slipsurface/apps/<key>/`.
+compatible core, verified SHA-256 checksum, safe paths and bounded extraction) and unpacks it into `~/.slipsurface/apps/<key>/`.
 The Suite installation is never modified; other modules are untouched; and
 `slipsurface.installer.uninstall(key)` returns the module to the bundled
 release.
@@ -61,3 +63,18 @@ a patch-bumped archive of one module (`--key wall` chooses another), writes
 Suite offers and installs the update exactly as it would over the network.
 `python scripts/demo_update.py --revert` removes the demonstration
 catalogue afterwards.
+
+## Security and installation boundaries
+
+Updates execute Python code with the current user permissions. Only use a
+catalogue whose author and hosting are trusted. SHA-256 verifies that the
+archive matches that catalogue; it does **not** authenticate an untrusted
+catalogue. Remote archives require HTTPS, and the importer rejects ZIP path
+traversal, symlinks, case-folding collisions, oversized entries and excessive
+unpacked data. A module with an open editor must be saved before update, and
+an ongoing calculation prevents replacement. The prior module is restored if
+the new module cannot be moved into place.
+
+The Suite itself remains a Python-source desktop application launched using
+`python main.py`. Optional per-module ZIP updates are **not** Windows EXE
+or installer distribution packages.

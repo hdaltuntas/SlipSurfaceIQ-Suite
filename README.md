@@ -18,7 +18,7 @@ Options to bypass the home dashboard and open a module immediately:
     python main.py --lang tr --theme light --app bearing
     python main.py --lang en --theme dark --app rock
 
-Only Python sources and main.py are used. No EXE, installer, PyInstaller, distribution package, release or web server.
+The desktop launcher uses only Python and main.py. There is no EXE, PyInstaller, Windows installer or web server. Optional **per-module** signed-catalogue ZIP archives are supported for updating an individual Python analysis module (see docs/UPDATE_CATALOGUE.md); these are not desktop installer packages.
 
 ## Interface
 

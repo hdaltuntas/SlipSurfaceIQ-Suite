@@ -115,7 +115,8 @@ A release catalogue is a JSON file listing newer releases:
     "pile": {
         "version": "1.1.0",
         "changelog": "Socket side resistance correlations added.",
-        "requires_core": ">=0.1.0"
+        "requires_core": ">=0.1.0",
+        "sha256": "<sha256-hex-digest>"
     }
 }
 ```
@@ -154,14 +155,14 @@ The flow, end to end:
    works well).
 
 2. Publish the catalogue. `~/.slipsurface/index.json` maps every module to
-   its newest release; a record with `url`, `version`, `changelog` and
-   `requires_core` is all the shell needs.
+   its newest release; a record with `url`, `version`, `changelog`, `requires_core` and
+   `sha256` is required for installation.
 
 3. On the user's machine the shell compares versions, shows the badge and
    the button, and on confirmation calls
    `slipsurface.installer.install_release(record)`: it downloads the
    archive, checks it against the catalogue (same key, same version, a core
-   this Suite satisfies, no unsafe paths), and unpacks it into the user
+   this Suite satisfies, matching SHA-256, no unsafe paths), and unpacks it into the user
    applications directory `~/.slipsurface/apps/<key>/`, replacing any
    previously installed release. The Suite directory itself is never
    written to, so no administrator rights are needed.
@@ -204,3 +205,17 @@ true:
 In every case the split requires no shell changes: the application keeps its
 `app.json`, registers the same entry point and is discovered exactly like a
 bundled one.
+
+## Tested separation and fallback contracts
+
+The per-module archive builder rewrites the old parent-relative version alias
+in each application initializer to the module release version. This is
+necessary because installed plugins use a top-level `slipsurface_<key>`
+package, not the bundled `slipsurface.<key>` namespace.
+
+The native launcher accepts new manifest keys and displays a generic icon and
+workspace profile if an app does not yet have a custom design. Applications
+must provide the methods in `slipsurface.contract.AppSession`; Kinematic
+also supports this shared contract while keeping its specialist calls.
+
+The desktop launcher is still started solely by `python main.py`.
