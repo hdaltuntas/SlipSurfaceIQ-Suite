@@ -78,3 +78,24 @@ the new module cannot be moved into place.
 The Suite itself remains a Python-source desktop application launched using
 `python main.py`. Optional per-module ZIP updates are **not** Windows EXE
 or installer distribution packages.
+
+## Activation failures and Windows validation
+
+Before replacing a live release, a candidate ZIP is extracted into a temporary
+folder and its `Session` import, application contract, and metadata are checked
+in a separate Python interpreter with a bounded timeout. The working module
+remains untouched when this preflight fails.
+
+The PySide6 update flow then retains the previous installed module until the
+new native editor can be opened successfully. Success discards the backup;
+failure automatically restores the former release (or the original bundled
+module for a first-time user installation). User project files must be saved
+before starting any update.
+
+Incompatible module versions are excluded from the launchable catalogue and
+listed on the home dashboard together with their required core version.
+
+The Windows CI pipeline installs `requirements-dev.txt`, compiles sources,
+runs all pytest regressions and opens module pages with Qt offscreen mode.
+The app continues to be launched using only `python main.py`. Windows EXE
+production and releases are deliberately excluded.
