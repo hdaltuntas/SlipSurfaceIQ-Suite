@@ -189,6 +189,11 @@ class DataTable(QWidget):
                 found = editor.findData(value)
                 if found >= 0:
                     editor.setCurrentIndex(found)
+                elif value is not None and value != "":
+                    # Preserve legacy/custom values rather than silently
+                    # overwriting them with the first dropdown choice.
+                    editor.addItem(str(value), value)
+                    editor.setCurrentIndex(editor.count() - 1)
                 self.table.setCellWidget(index, col, editor)
             elif kind == "check":
                 editor = QCheckBox()
