@@ -6,9 +6,9 @@ import zipfile
 from pathlib import Path
 
 from slipsurface import installer
-from slipsurface.installer import InstallError, install_release, installed_keys, uninstall
-from slipsurface.registry import ManifestError, discover
 from slipsurface.desktop.updater import AppUpdate, check
+from slipsurface.installer import InstallError, install_release, installed_keys, uninstall
+from slipsurface.registry import discover
 
 EXPECTED_ORDER = [
     "kinematic", "rock", "bearing", "settle", "correlation",

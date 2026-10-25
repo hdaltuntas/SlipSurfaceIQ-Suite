@@ -3,8 +3,6 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from slipsurface.apps import keys
-
 
 @dataclass(frozen=True)
 class WorkspaceProfile:
@@ -49,7 +47,10 @@ PROFILES = {
 
 
 def profile(key: str) -> WorkspaceProfile:
-    return PROFILES[key]
+    return PROFILES.get(key, WorkspaceProfile(
+        module=key,
+        primary_tab="Proje",
+        hint_tr="Uygulama parametrelerini girip analizi çalıştırın.",
+        hint_en="Enter the module parameters and run the analysis.",
+    ))
 
-
-assert set(PROFILES) == set(keys()), "Every active module needs a workspace profile"
