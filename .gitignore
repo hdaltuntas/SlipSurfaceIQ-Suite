@@ -9,7 +9,6 @@ dist/
 .ruff_cache/
 .coverage
 *.spec
-!packaging/suite.spec
 *.log
 *.pdf
 *.docx
