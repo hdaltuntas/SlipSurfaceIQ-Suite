@@ -9,7 +9,14 @@ import pytest
 
 from slipsurface import installer
 from slipsurface.desktop.updater import AppUpdate, check
-from slipsurface.installer import InstallError, install_release, installed_keys, uninstall
+from slipsurface.installer import (
+    InstallError,
+    confirm_release,
+    install_release,
+    installed_keys,
+    rollback_release,
+    uninstall,
+)
 from slipsurface.registry import discover
 
 EXPECTED_ORDER = [
@@ -33,12 +40,30 @@ def _manifest(key="pile", version="1.1.0", requires_core=">=0.1.0"):
     }
 
 
-def _archive_bytes(manifest, top="release"):
+VALID_SESSION = """class Session:
+    def __init__(self, lang="tr"):
+        self.lang = lang
+    def meta(self):
+        return {"schema": {"project": {"groups": []}}, "defaults": {"title": "demo"}}
+    def analyse(self, values):
+        return {"ok": True}
+    def plot(self, target, kind):
+        return b""
+    def report(self, fmt, path):
+        return path
+    def project_file(self, values):
+        return values
+    def load_project(self, payload):
+        return {"ok": True, "values": payload}
+"""
+
+
+def _archive_bytes(manifest, top="release", source=VALID_SESSION):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr(f"{top}/app.json", json.dumps(manifest))
         archive.writestr(f"{top}/slipsurface_{manifest['key']}/__init__.py", "")
-        archive.writestr(f"{top}/slipsurface_{manifest['key']}/web/session.py", "class Session:  # noqa\n    pass\n")
+        archive.writestr(f"{top}/slipsurface_{manifest['key']}/web/session.py", source)
     return buffer.getvalue()
 
 
@@ -329,3 +354,57 @@ def test_one_malformed_catalogue_record_does_not_hide_the_others():
 
 if __name__ == "__main__":
     sys.exit(pytest.main([__file__]))
+
+
+def test_candidate_probe_rejects_broken_session_before_replacing_working_release(tmp_path):
+    root = tmp_path / "apps"
+    good = _archive_bytes(_manifest())
+    install_release(_record(), apps_root=root, fetch=lambda _: good)
+    old_manifest = (root / "pile" / "app.json").read_bytes()
+    broken = _archive_bytes(_manifest(version="1.2.0"), source="raise RuntimeError('broken')\n")
+    with pytest.raises(InstallError, match="candidate module failed validation"):
+        install_release(
+            _record(version="1.2.0", sha256=hashlib.sha256(broken).hexdigest()),
+            apps_root=root, fetch=lambda _: broken,
+        )
+    assert (root / "pile" / "app.json").read_bytes() == old_manifest
+    assert not (root / "pile.previous").exists()
+
+
+def test_retained_backup_is_restored_if_first_launch_fails(tmp_path):
+    root = tmp_path / "apps"
+    install_release(_record(), apps_root=root, fetch=lambda _: _archive_bytes(_manifest()))
+    install_release(
+        _record(version="1.2.0"), apps_root=root,
+        fetch=lambda _: _archive_bytes(_manifest(version="1.2.0")),
+        keep_backup=True,
+    )
+    assert (root / "pile.previous" / "app.json").is_file()
+    assert "1.2.0" in (root / "pile" / "app.json").read_text()
+    rollback_release("pile", apps_root=root)
+    assert "1.1.0" in (root / "pile" / "app.json").read_text()
+    assert not (root / "pile.previous").exists()
+
+
+def test_confirmed_update_removes_backup_after_first_launch(tmp_path):
+    root = tmp_path / "apps"
+    install_release(_record(), apps_root=root, fetch=lambda _: _archive_bytes(_manifest()))
+    install_release(
+        _record(version="1.2.0"), apps_root=root,
+        fetch=lambda _: _archive_bytes(_manifest(version="1.2.0")),
+        keep_backup=True,
+    )
+    confirm_release("pile", apps_root=root)
+    assert not (root / "pile.previous").exists()
+    assert "1.2.0" in (root / "pile" / "app.json").read_text()
+
+
+def test_first_installed_override_rolls_back_to_bundled_module(tmp_path):
+    root = tmp_path / "apps"
+    install_release(
+        _record(), apps_root=root, fetch=lambda _: _archive_bytes(_manifest()),
+        keep_backup=True,
+    )
+    rollback_release("pile", apps_root=root)
+    assert installed_keys(root) == []
+    assert not (root / "pile").exists()
