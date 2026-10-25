@@ -17,8 +17,9 @@ versions of the same key. The result is sorted by ``order``, then ``key`` and
 is deterministic on every run.
 
 A release installed under the user applications directory carries its
-package next to its manifest, so its parent directory is appended to
-``sys.path`` once, at discovery time, to make ``slipsurface_<key>`` importable.
+package next to its manifest, so its parent directory is put at the front of
+``sys.path`` at discovery time, to make ``slipsurface_<key>`` importable ahead
+of any plugin distribution of the same package.
 """
 from __future__ import annotations
 
@@ -137,7 +138,7 @@ def _installed_manifests(apps_root: Path | None = None) -> list[dict]:
 
     Each subdirectory that carries an ``app.json`` is one installed release:
     the manifest next to an importable ``slipsurface_<key>`` package. The
-    subdirectory is appended to ``sys.path`` so the shell can import the
+    subdirectory is put at the front of ``sys.path`` so the shell imports the
     application's session from the manifest's ``session`` field.
     """
     root = Path(apps_root) if apps_root is not None else USER_APPS_DIR
@@ -145,6 +146,10 @@ def _installed_manifests(apps_root: Path | None = None) -> list[dict]:
     if not root.is_dir():
         return manifests
     for directory in sorted(root.iterdir()):
+        # Only ``<key>/`` directories are releases: a leftover ``<key>.previous``
+        # backup or a staging directory must never shadow the live release.
+        if not _KEY.fullmatch(directory.name) or directory.is_symlink():
+            continue
         manifest_path = directory / "app.json"
         if not manifest_path.is_file():
             continue
@@ -153,15 +158,36 @@ def _installed_manifests(apps_root: Path | None = None) -> list[dict]:
         except (OSError, json.JSONDecodeError, ManifestError):
             continue
         key = manifest["key"]
+        if key != directory.name:
+            continue
         if manifest.get("session") != f"slipsurface_{key}.web.session":
             continue
-        if directory.is_symlink():
+        if not _holds_only_release(directory, key):
             continue
+        # Put the release ahead of site-packages, so a plugin distribution of
+        # the same ``slipsurface_<key>`` package cannot shadow the release
+        # the catalogue reports. The directory is checked above to expose
+        # nothing importable except that one package.
         location = str(directory)
-        if location not in sys.path:
-            sys.path.append(location)
+        if location in sys.path:
+            sys.path.remove(location)
+        sys.path.insert(0, location)
         manifests.append(manifest)
     return manifests
+
+
+def _holds_only_release(directory: Path, key: str) -> bool:
+    """Whether a release directory contains just its manifest and package.
+
+    The directory goes onto the front of ``sys.path``, so any other module
+    in it would shadow the standard library or the Suite itself.
+    """
+    allowed = {"app.json", f"slipsurface_{key}"}
+    try:
+        names = {entry.name for entry in directory.iterdir()}
+    except OSError:
+        return False
+    return names <= allowed and (directory / f"slipsurface_{key}").is_dir()
 
 
 def discover(apps_root: Path | str | None = None) -> list[dict]:

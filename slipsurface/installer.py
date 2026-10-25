@@ -8,6 +8,7 @@ from __future__ import annotations
 import hashlib
 import io
 import json
+import logging
 import re
 import shutil
 import stat
@@ -22,6 +23,8 @@ from slipsurface.registry import USER_APPS_DIR, load_manifest
 from slipsurface.versioning import is_compatible
 
 __all__ = ["InstallError", "install_release", "uninstall", "installed_keys", "download"]
+
+LOG = logging.getLogger(__name__)
 
 MAX_ARCHIVE_BYTES = 512 * 1024 * 1024
 MAX_UNPACKED_BYTES = 1024 * 1024 * 1024
@@ -144,6 +147,36 @@ def _extract(archive: zipfile.ZipFile, root: str, destination: Path) -> None:
                 sink.write(chunk)
 
 
+def _check_layout(archive: zipfile.ZipFile, root: str, key: str) -> None:
+    """Allow only ``app.json`` and the ``slipsurface_<key>`` package at the top.
+
+    The installed directory goes onto the front of ``sys.path``, so any other
+    top-level module could shadow the standard library or the Suite.
+    """
+    package = f"slipsurface_{key}"
+    for name in archive.namelist():
+        relative = name[len(root):]
+        if not relative or relative == "app.json":
+            continue
+        if relative.split("/", 1)[0] != package or relative == package:
+            raise InstallError(f"unexpected top-level entry in release archive: {name}")
+
+
+def _is_stale_backup(backup: Path, destination: Path, key: str) -> bool:
+    """Whether ``backup`` is the leftover copy of a release replaced earlier.
+
+    That is the case only when a live release sits at ``destination`` and the
+    backup holds a manifest of the same key; anything else is left alone.
+    """
+    if not (destination / "app.json").is_file():
+        return False
+    try:
+        manifest = json.loads((backup / "app.json").read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return False
+    return isinstance(manifest, dict) and manifest.get("key") == key
+
+
 def install_release(
     record, apps_root: Path | str | None = None, core: str = CORE_VERSION, fetch=None
 ) -> dict:
@@ -157,7 +190,10 @@ def install_release(
     if not isinstance(digest, str) or not _SHA256.fullmatch(digest):
         raise InstallError("release catalogue must provide a 64-character SHA-256 checksum")
     if not is_compatible(core, record.get("requires_core", "")):
-        raise InstallError(f"release {key} {version} requires a newer core")
+        raise InstallError(
+            f"release {key} {version} requires core {record.get('requires_core')!r}, "
+            f"this Suite has {core}"
+        )
     archive_bytes = (fetch or download)(url)
     if not isinstance(archive_bytes, bytes) or len(archive_bytes) > MAX_ARCHIVE_BYTES:
         raise InstallError("release payload is not bounded bytes")
@@ -185,9 +221,12 @@ def install_release(
             }
             if not required.issubset(archive.namelist()):
                 raise InstallError("release archive lacks expected Python package files")
+            _check_layout(archive, root, key)
             root_dir.mkdir(parents=True, exist_ok=True)
             if destination.is_symlink() or backup.is_symlink():
                 raise InstallError("cannot replace symbolic links")
+            if backup.exists() and _is_stale_backup(backup, destination, key):
+                shutil.rmtree(backup, ignore_errors=True)
             if backup.exists():
                 raise InstallError("previous backup exists; resolve it before updating")
             with tempfile.TemporaryDirectory(prefix=f".{key}-staging-", dir=root_dir) as temp:
@@ -203,7 +242,14 @@ def install_release(
                         backup.rename(destination)
                     raise
                 if had_previous:
-                    shutil.rmtree(backup)
+                    # The new release is live: failing to delete the old copy
+                    # (a locked file, say) must not report the update as failed.
+                    # A leftover backup is never discovered as a module and is
+                    # cleared before the next update.
+                    try:
+                        shutil.rmtree(backup)
+                    except OSError:
+                        LOG.warning("could not remove the previous release at %s", backup)
     except (zipfile.BadZipFile, EOFError) as error:
         raise InstallError(f"invalid release ZIP: {error}") from error
     return manifest

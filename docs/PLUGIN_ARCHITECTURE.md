@@ -162,7 +162,8 @@ The flow, end to end:
    the button, and on confirmation calls
    `slipsurface.installer.install_release(record)`: it downloads the
    archive, checks it against the catalogue (same key, same version, a core
-   this Suite satisfies, matching SHA-256, no unsafe paths), and unpacks it into the user
+   this Suite satisfies, matching SHA-256, no unsafe paths, nothing at the
+   top level but `app.json` and `slipsurface_<key>/`), and unpacks it into the user
    applications directory `~/.slipsurface/apps/<key>/`, replacing any
    previously installed release. The Suite directory itself is never
    written to, so no administrator rights are needed.
