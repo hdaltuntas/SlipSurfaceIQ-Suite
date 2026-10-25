@@ -139,3 +139,23 @@ def test_specialist_native_engine_controls():
         assert page.input_tabs.tabText(page.input_tabs.currentIndex()) == "Kinematik Tarama"
     finally:
         window.close()
+
+
+def test_every_module_project_roundtrip_through_native_editors(tmp_path):
+    _qapp()
+    window = MainWindow(language="tr", theme="light")
+    try:
+        for module in APPS:
+            window.open_module(module.key)
+            page = window.current_page()
+            before = page.current_values()
+            path = tmp_path / f"{module.key}.json"
+            page.save_project(str(path))
+            assert path.is_file()
+            page.open_project(str(path))
+            after = page.current_values()
+            assert set(before).issubset(after)
+            assert after.get("title") == before.get("title")
+            window.show_home()
+    finally:
+        window.close()
