@@ -1,0 +1,12 @@
+{
+  "key": "spwa",
+  "name": "Pile Wall Analysis",
+  "tr": "Palplanş ve Kazık Perde",
+  "group": "Retaining",
+  "description": "Earth support and beam–spring analysis",
+  "description_tr": "Palplanş ve fore kazık perdelerde ankrajlı kazı analizi.",
+  "version": "1.0.0",
+  "requires_core": ">=0.1.0",
+  "order": 8,
+  "session": "slipsurface.spwa.web.session"
+}

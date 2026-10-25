@@ -1,0 +1,12 @@
+{
+  "key": "kinematic",
+  "name": "Kinematic",
+  "tr": "Kaya Şevi Kinematiği",
+  "group": "Rock",
+  "description": "Stereonet, planar, wedge and toppling",
+  "description_tr": "Stereonet ile düzlemsel, kama ve devrilme analizleri.",
+  "version": "1.0.0",
+  "requires_core": ">=0.1.0",
+  "order": 1,
+  "session": "slipsurface.kinematic.web.session"
+}
