@@ -81,6 +81,14 @@ QFrame#suiteResultTablePanel { background: #ffffff; border: 1px solid #cddaea;
     border-radius: 8px; }
 QLabel#suiteResultTableTitle { color: #294b71; font-weight: 650; }
 
+
+QLabel#suiteSectionHint { background: #eaf2fb; color: #385d85;
+    border: 1px solid #d6e4f4; border-radius: 6px; padding: 9px 12px; }
+QTableWidget#suiteInputTable { selection-background-color: #d9e9fa;
+    alternate-background-color: #f3f7fc; gridline-color: #dbe5f1; }
+QPushButton#suiteSpecialAction { background: #edf3fb; color: #164e83;
+    border: 1px solid #b8d0eb; font-weight: 650; }
+
 """
 
 DARK = """
@@ -154,6 +162,14 @@ QLabel#suiteResultWarnings { background: #4d3b28; border: 1px solid #8f7646;
     border-radius: 7px; padding: 10px; color: #ffe9bf; }
 QFrame#suiteResultTablePanel { background: #283950; border: 1px solid #456081; border-radius: 8px; }
 QLabel#suiteResultTableTitle { color: #e0edfc; font-weight: 650; }
+
+
+QLabel#suiteSectionHint { background: #293e58; color: #d5e8ff;
+    border: 1px solid #405d80; border-radius: 6px; padding: 9px 12px; }
+QTableWidget#suiteInputTable { selection-background-color: #375b83;
+    alternate-background-color: #293c53; gridline-color: #435b78; }
+QPushButton#suiteSpecialAction { background: #2f4969; color: #e2eeff;
+    border: 1px solid #537ba9; font-weight: 650; }
 
 """
 
