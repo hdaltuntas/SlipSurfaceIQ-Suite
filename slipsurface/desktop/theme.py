@@ -47,6 +47,9 @@ QLabel#suiteCardUpdateBadge { background: #fff3d9; color: #8a6416; border: 1px s
     border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
 QLabel#suiteCardUpdateBadgeIncompatible { background: #fdeae6; color: #a04a30; border: 1px solid #eab9a5;
     border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+QPushButton#suiteCardUpdateInstall { background: #1c9568; color: #ffffff; border: 1px solid #15754f;
+    border-radius: 8px; padding: 3px 12px; font-size: 10px; font-weight: 700; }
+QPushButton#suiteCardUpdateInstall:hover { background: #157a52; }
 QLabel#suiteUpdateBanner { background: #eaf6ff; color: #14549e; border: 1px solid #b7d9f5;
     border-radius: 9px; padding: 10px 14px; font-weight: 650; }
 
@@ -141,6 +144,9 @@ QLabel#suiteCardUpdateBadge { background: #4d3b28; color: #ffe9bf; border: 1px s
     border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
 QLabel#suiteCardUpdateBadgeIncompatible { background: #4a2e26; color: #ffc9b8; border: 1px solid #9a5f4a;
     border-radius: 8px; padding: 2px 8px; font-size: 10px; font-weight: 700; }
+QPushButton#suiteCardUpdateInstall { background: #2f6e57; color: #e2f6ec; border: 1px solid #4d9a7d;
+    border-radius: 8px; padding: 3px 12px; font-size: 10px; font-weight: 700; }
+QPushButton#suiteCardUpdateInstall:hover { background: #3a8a6c; }
 QLabel#suiteUpdateBanner { background: #1f3550; color: #cfe6ff; border: 1px solid #3f6fa8;
     border-radius: 9px; padding: 10px 14px; font-weight: 650; }
 

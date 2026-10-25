@@ -58,18 +58,21 @@ older shell skips. `requires_core` accepts comma-separated AND clauses over
 
 ## Discovery order
 
-`registry.discover()` merges two sources:
+`registry.discover()` merges three sources:
 
 1. Bundled manifests: every `slipsurface/<key>/app.json`.
 2. Installed plugins: any distribution registering an entry point in the
    `slipsurface.apps` group whose value resolves to a callable returning the
    manifest.
+3. Release archives unpacked into the user applications directory
+   (`~/.slipsurface/apps` by default, overridable with the
+   `SLIPSURFACE_APPS_DIR` environment variable).
 
-On a duplicate `key` the installed plugin wins — an installed application
-always overrides the bundled one with the same key. The result is sorted by
-`order`, then `key`, so the launchpad is stable regardless of the filesystem
-or entry-point order. A manifest that fails validation is skipped rather than
-allowed to break start-up.
+On a duplicate `key` the most local source wins — an unpacked release
+always overrides the entry-point and bundled versions of the same key. The
+result is sorted by `order`, then `key`, so the launchpad is stable
+regardless of the filesystem or entry-point order. A manifest that fails
+validation is skipped rather than allowed to break start-up.
 
 `apps.py` wraps the discovered manifests in the `App` value object and keeps
 the historical API (`APPS`, `keys()`, `get()`, `catalogue()`) unchanged.
@@ -127,9 +130,59 @@ core than this Suite carries is still shown, but flagged as incompatible
 unreadable or malformed catalogue is not an error; the Suite starts quietly
 with no updates, because an offline machine is the normal case.
 
-Today the catalogue is read-only: installing an update still means installing
-the newer distribution. The download-and-replace step can be added behind
-this same interface without touching the shell.
+## Module-by-module updates
+
+A catalogue record that carries a `url` is not only announced but
+installable: the launchpad card shows an install button, and the shell
+installs that one module without touching any other module or the Suite
+installation itself.
+
+The flow, end to end:
+
+1. Develop one module, bump its `app.json` `version`, run
+   `python scripts/build_module_dist.py <key>`. The script writes
+   `dist/<key>-<version>.zip`, a standard-library ZIP with this layout:
+
+   ```text
+   <key>-<version>/
+       app.json                  session rewritten to slipsurface_<key>.web.session
+       slipsurface_<key>/        the module package, byte for byte
+   ```
+
+   It also prints the catalogue entry to paste into the release index —
+   fill in the real download URL and publish the archive (a GitHub release
+   works well).
+
+2. Publish the catalogue. `~/.slipsurface/index.json` maps every module to
+   its newest release; a record with `url`, `version`, `changelog` and
+   `requires_core` is all the shell needs.
+
+3. On the user's machine the shell compares versions, shows the badge and
+   the button, and on confirmation calls
+   `slipsurface.installer.install_release(record)`: it downloads the
+   archive, checks it against the catalogue (same key, same version, a core
+   this Suite satisfies, no unsafe paths), and unpacks it into the user
+   applications directory `~/.slipsurface/apps/<key>/`, replacing any
+   previously installed release. The Suite directory itself is never
+   written to, so no administrator rights are needed.
+
+4. The shell then rebuilds the catalogue (`apps.refresh()`), drops the
+   cached imports and the open page of that one module, and the next open
+   imports the new release's session from its manifest `session` field —
+   `slipsurface_pile.web.session` for an installed release, while bundled
+   modules keep importing `slipsurface.<key>.web.session`.
+
+Because discovery puts the installed release above the bundled module of
+the same key, a module that was never updated simply keeps running from the
+Suite installation, and `installer.uninstall(key)` rolls a module back to
+the bundled version at any time.
+
+Two conventions make the relocation work and both are already in place:
+
+- Modules address the shared core absolutely (`from slipsurface.common
+  import factors`), never relatively across the package boundary.
+- Modules address their own code relatively (`from ..engine import ...`),
+  so the package works unchanged under the `slipsurface_<key>` name.
 
 ## When to actually split repositories
 

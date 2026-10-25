@@ -22,7 +22,7 @@ from __future__ import annotations
 
 from typing import Dict
 
-from ..common import factors as F
+from slipsurface.common import factors as F
 
 __all__ = ["ultimate"]
 

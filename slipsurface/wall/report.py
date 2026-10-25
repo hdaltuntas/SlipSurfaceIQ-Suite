@@ -580,7 +580,7 @@ def export_html(path: str, wall, lang: str) -> None:
 
 def export_pdf(path: str, wall, lang: str) -> None:
     """PDF through reportlab; the figures travel as `fig://<key>` references."""
-    from ..common import pdf as pdf_writer
+    from slipsurface.common import pdf as pdf_writer
 
     T = TEXTS.get(lang, TEXTS["en"])
     info = wall.config.get("project_info", {})

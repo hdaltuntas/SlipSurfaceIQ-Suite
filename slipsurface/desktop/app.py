@@ -44,7 +44,8 @@ from PySide6.QtWidgets import (
 )
 
 from slipsurface import APP_NAME, __version__
-from slipsurface.apps import APPS, get
+from slipsurface import apps as app_catalogue
+from slipsurface.apps import forms_path, get, session_path
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.profiles import profile
@@ -296,11 +297,11 @@ class ModulePage(QWidget):
         super().__init__(parent)
         self.key = key
         self.language = language
-        adapter = importlib.import_module(f"slipsurface.{key}.web.session")
+        adapter = importlib.import_module(session_path(key))
         self.session = adapter.Session() if key == "kinematic" else adapter.Session(lang=language)
         if key == "kinematic":
             self.session.set_language(language)
-            forms = importlib.import_module("slipsurface.kinematic.forms")
+            forms = importlib.import_module(forms_path(key))
             self.metadata = {"schema": forms.schema(), "defaults": forms.defaults(),
                              "figures": ["main"]}
         else:
@@ -802,6 +803,7 @@ class MainWindow(QMainWindow):
         self.stack = QStackedWidget()
         self.home = HomePage(language, self.available_updates)
         self.home.module_selected.connect(self.open_module)
+        self.home.update_requested.connect(self.install_update)
         self.stack.addWidget(self.home)
 
         self.workspace = QWidget()
@@ -836,12 +838,7 @@ class MainWindow(QMainWindow):
         self.navigator = QListWidget()
         self.navigator.setMinimumWidth(180)
         self.navigator.setMaximumWidth(285)
-        for module in APPS:
-            item = QListWidgetItem(module.tr if language == "tr" else module.name)
-            item.setData(Qt.UserRole, module.key)
-            item.setToolTip(module.description_tr if language == "tr" else module.description)
-            item.setIcon(module_icon(module.key))
-            self.navigator.addItem(item)
+        self._build_navigator()
         self.navigator.currentItemChanged.connect(self._navigate)
         layout.addWidget(self.navigator)
         self.view = QTabWidget()
@@ -895,6 +892,125 @@ class MainWindow(QMainWindow):
         for action in self.project_actions:
             action.setEnabled(enabled)
 
+    def _build_navigator(self):
+        """(Re)fill the module list from the current catalogue."""
+        self.navigator.blockSignals(True)
+        self.navigator.clear()
+        for module in app_catalogue.catalogue():
+            item = QListWidgetItem(module.tr if self.language == "tr" else module.name)
+            item.setData(Qt.UserRole, module.key)
+            item.setToolTip(
+                module.description_tr if self.language == "tr" else module.description
+            )
+            item.setIcon(module_icon(module.key))
+            self.navigator.addItem(item)
+        self.navigator.blockSignals(False)
+        self.navigator.setCurrentRow(-1)
+
+    def install_update(self, key: str):
+        """Download and install one module release in a background thread."""
+        update = self.available_updates.get(key)
+        if update is None or not update.url:
+            QMessageBox.information(
+                self,
+                _say(self.language, "No downloadable release", "İndirilebilir sürüm yok"),
+                _say(
+                    self.language,
+                    f"{get(key).name}: the release catalogue does not name an archive for this update.",
+                    f"{get(key).name}: sürüm kataloğu bu güncelleme için bir arşiv belirtmiyor.",
+                ),
+            )
+            return
+        name = get(key).name
+        answer = QMessageBox.question(
+            self,
+            _say(self.language, "Install update", "Güncellemeyi kur"),
+            _say(
+                self.language,
+                f"Download {name} {update.installed} → {update.latest} and install it for this Suite?",
+                f"{name} {update.installed} → {update.latest} indirilip bu Suite için kurulsun mu?",
+            ),
+        )
+        if answer != QMessageBox.StandardButton.Yes:
+            return
+        self.statusBar().showMessage(
+            _say(self.language, f"Downloading {name}…", f"{name} indiriliyor…")
+        )
+        record = {
+            "key": key,
+            "version": update.latest,
+            "url": update.url,
+            "requires_core": update.requires_core,
+        }
+
+        def run_install():
+            from slipsurface import installer
+
+            return installer.install_release(record)
+
+        self._update_task = AnalysisTask(run_install)
+        self._update_task.signals.finished.connect(self._update_installed)
+        QThreadPool.globalInstance().start(self._update_task)
+
+    def _update_installed(self, result, error):
+        if error is not None or not isinstance(result, dict):
+            LOG.exception("Module update failed")
+            QMessageBox.warning(
+                self,
+                _say(self.language, "Update failed", "Güncelleme başarısız"),
+                _say(
+                    self.language,
+                    f"The release could not be installed: {error}",
+                    f"Sürüm kurulamadı: {error}",
+                ),
+            )
+            return
+        key = result["key"]
+        name = get(key).name if key in app_catalogue.keys() else key
+        self.statusBar().showMessage(
+            _say(self.language, f"{name} {result['version']} installed", f"{name} {result['version']} kuruldu")
+        )
+        QMessageBox.information(
+            self,
+            _say(self.language, "Update installed", "Güncelleme kuruldu"),
+            _say(
+                self.language,
+                f"{name} has been updated to {result['version']}.",
+                f"{name} uygulaması {result['version']} sürümüne güncellendi.",
+            ),
+        )
+        self._refresh_after_update(key)
+
+    def _refresh_after_update(self, key: str):
+        """Rebuild catalogue, launchpad and navigator after an install."""
+        app_catalogue.refresh()
+        # Drop cached imports of the installed package so the next open runs
+        # the code that was just unpacked, not the previous release.
+        session = app_catalogue.get(key).session
+        if session:
+            root_package = session.removesuffix(".web.session")
+            for module_name in [
+                name for name in sys.modules
+                if name == root_package or name.startswith(f"{root_package}.")
+            ]:
+                del sys.modules[module_name]
+        self.available_updates = load_available_updates()
+        stale = self.pages.pop(key, None)
+        if stale is not None:
+            index = self.view.indexOf(stale)
+            if index >= 0:
+                self.view.removeTab(index)
+            stale.deleteLater()
+        self._build_navigator()
+        new_home = HomePage(self.language, self.available_updates)
+        new_home.module_selected.connect(self.open_module)
+        new_home.update_requested.connect(self.install_update)
+        self.stack.removeWidget(self.home)
+        self.home.deleteLater()
+        self.stack.insertWidget(0, new_home)
+        self.home = new_home
+        self.show_home()
+
     def set_theme(self, theme: str):
         self.theme = "dark" if theme == "dark" else "light"
         QApplication.instance().setStyleSheet(stylesheet(self.theme))
@@ -911,7 +1027,7 @@ class MainWindow(QMainWindow):
 
     def open_module(self, key: str):
         """Open a card's module, retaining existing page state on return."""
-        if key not in {module.key for module in APPS}:
+        if key not in app_catalogue.keys():
             raise KeyError(f"Unknown module: {key}")
         for index in range(self.navigator.count()):
             item = self.navigator.item(index)
@@ -1009,7 +1125,7 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="SlipSurfaceIQ Suite native PySide6 desktop")
     parser.add_argument("--lang", choices=("tr", "en"), default="tr")
     parser.add_argument("--theme", choices=("light", "dark"), default="light")
-    parser.add_argument("--app", choices=[a.key for a in APPS], default=None,
+    parser.add_argument("--app", choices=app_catalogue.keys(), default=None,
                         help="Open a module directly instead of the home dashboard")
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])

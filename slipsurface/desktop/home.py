@@ -14,7 +14,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from slipsurface.apps import APPS, App
+from slipsurface.apps import App, catalogue
 from slipsurface.desktop.icons import module_icon
 
 
@@ -27,6 +27,7 @@ class ModuleCard(QFrame):
     """Entire card is clickable and also supports keyboard activation."""
 
     activated = Signal(str)
+    update_requested = Signal(str)
 
     def __init__(self, module: App, language: str, update=None, parent: QWidget | None = None):
         super().__init__(parent)
@@ -90,6 +91,14 @@ class ModuleCard(QFrame):
                 badge.setObjectName("suiteCardUpdateBadgeIncompatible")
             badge.setToolTip(update.changelog if update.changelog else badge.text())
             footer.addWidget(badge)
+            if update.core_ok and update.url:
+                install = QPushButton("Güncelle" if language == "tr" else "Update")
+                install.setObjectName("suiteCardUpdateInstall")
+                install.setToolTip(
+                    f"{name} {update.installed} → {update.latest}"
+                )
+                install.clicked.connect(lambda: self.update_requested.emit(self.module.key))
+                footer.addWidget(install)
         footer.addStretch()
         content.addLayout(footer)
 
@@ -127,6 +136,7 @@ class HomePage(QWidget):
     """Landing screen independent of all engineering session imports."""
 
     module_selected = Signal(str)
+    update_requested = Signal(str)
 
     def __init__(
         self, language: str = "tr", updates: dict | None = None, parent: QWidget | None = None
@@ -160,9 +170,9 @@ class HomePage(QWidget):
         layout.addWidget(heading)
 
         subheading = QLabel(
-            f"{len(APPS)} geoteknik ve kaya mühendisliği programı. Başlamak için bir uygulama seçin."
+            f"{len(catalogue())} geoteknik ve kaya mühendisliği programı. Başlamak için bir uygulama seçin."
             if language == "tr"
-            else f"{len(APPS)} geotechnical and rock engineering tools. Select an application to begin."
+            else f"{len(catalogue())} geotechnical and rock engineering tools. Select an application to begin."
         )
         subheading.setObjectName("suiteHomeSubtitle")
         subheading.setWordWrap(True)
@@ -185,9 +195,10 @@ class HomePage(QWidget):
         grid.setVerticalSpacing(18)
         for column in range(3):
             grid.setColumnStretch(column, 1)
-        for index, module in enumerate(APPS):
+        for index, module in enumerate(catalogue()):
             card = ModuleCard(module, language, update=self.updates.get(module.key))
             card.activated.connect(self.module_selected.emit)
+            card.update_requested.connect(self.update_requested.emit)
             self.cards[module.key] = card
             grid.addWidget(card, index // 3, index % 3)
         layout.addLayout(grid)

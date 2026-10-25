@@ -527,7 +527,7 @@ def export_html(path: str, analysis, lang: str, study=None) -> None:
 
 def export_pdf(path: str, analysis, lang: str, study=None) -> None:
     """PDF through reportlab; the figures travel as `fig://<key>` references."""
-    from ..common import pdf as pdf_writer
+    from slipsurface.common import pdf as pdf_writer
 
     T = TEXTS.get(lang, TEXTS["en"])
     info = analysis.config.get("project_info", {})

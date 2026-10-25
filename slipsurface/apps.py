@@ -1,11 +1,11 @@
 """The application catalogue, built from discovered manifests instead of a hard-coded list.
 
-Every application — bundled or installed as a plugin — carries an
-``app.json`` manifest next to its code. ``slipsurface.registry`` reads those
-manifests; this module wraps each of them in the ``App`` value object the
-desktop shell already consumes. The public surface (``APPS``, ``keys()``,
-``get()``, ``catalogue()``) is unchanged, so no caller has to care that the
-catalogue is now dynamic.
+Every application — bundled, entry-point installed or unpacked as a release
+archive — carries an ``app.json`` manifest. ``slipsurface.registry`` reads
+those manifests; this module wraps each of them in the ``App`` value object
+the desktop shell consumes. The public surface (``APPS``, ``keys()``,
+``get()``, ``catalogue()``, ``refresh()``) is unchanged for callers that
+already used it, so nothing has to care that the catalogue is dynamic.
 """
 from __future__ import annotations
 
@@ -32,6 +32,7 @@ class App:
     description_tr: str = ""
     version: str = "1.0.0"
     requires_core: str = ""
+    session: str = ""
 
 
 def _from_manifest(manifest: dict) -> App:
@@ -39,10 +40,15 @@ def _from_manifest(manifest: dict) -> App:
         **{field: manifest[field] for field in _FIELDS},
         version=manifest.get("version", "1.0.0"),
         requires_core=manifest.get("requires_core", ""),
+        session=manifest.get("session", ""),
     )
 
 
-APPS = tuple(_from_manifest(manifest) for manifest in discover())
+def _catalogue() -> tuple[App, ...]:
+    return tuple(_from_manifest(manifest) for manifest in discover())
+
+
+APPS = _catalogue()
 
 _BY_KEY = {app.key: app for app in APPS}
 
@@ -57,3 +63,35 @@ def get(key: str) -> App:
 
 def catalogue() -> tuple[App, ...]:
     return APPS
+
+
+def refresh() -> None:
+    """Re-read every manifest source and rebuild the catalogue.
+
+    Called after a module release has been installed (or uninstalled), so
+    the launchpad, the navigator and new module pages all see the new
+    versions without a restart. Pages already open keep their loaded code;
+    the shell drops them on refresh and reloads on next open.
+    """
+    global APPS, _BY_KEY
+    APPS = _catalogue()
+    _BY_KEY = {app.key: app for app in APPS}
+
+
+def session_path(key: str) -> str:
+    """The dotted import path of an application's session module.
+
+    Bundled applications live at ``slipsurface.<key>.web.session``; a
+    release installed into the user directory says where its session is in
+    its manifest, and that value wins.
+    """
+    session = get(key).session
+    return session or f"slipsurface.{key}.web.session"
+
+
+def forms_path(key: str) -> str:
+    """The dotted import path of an application's forms module."""
+    session = get(key).session
+    if not session:
+        return f"slipsurface.{key}.forms"
+    return f"{session.removesuffix('.web.session')}.forms"
