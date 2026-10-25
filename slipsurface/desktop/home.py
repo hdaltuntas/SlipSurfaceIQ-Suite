@@ -33,7 +33,7 @@ class ModuleCard(QFrame):
         self.module = module
         self.setObjectName("suiteModuleCard")
         self.setProperty("moduleKey", module.key)
-        self.setMinimumSize(245, 192)
+        self.setMinimumSize(245, 170)
         self.setCursor(Qt.PointingHandCursor)
         self.setFocusPolicy(Qt.StrongFocus)
 
@@ -44,8 +44,8 @@ class ModuleCard(QFrame):
         self.setToolTip(description)
 
         content = QVBoxLayout(self)
-        content.setContentsMargins(20, 17, 20, 16)
-        content.setSpacing(8)
+        content.setContentsMargins(18, 12, 18, 11)
+        content.setSpacing(5)
 
         top = QHBoxLayout()
         category = QLabel(
@@ -59,8 +59,8 @@ class ModuleCard(QFrame):
         self.icon_label = QLabel()
         self.icon_label.setObjectName("suiteCardIcon")
         self.icon_label.setAlignment(Qt.AlignCenter)
-        self.icon_label.setFixedSize(54, 54)
-        self.icon_label.setPixmap(module_icon(module.key).pixmap(40, 40))
+        self.icon_label.setFixedSize(44, 44)
+        self.icon_label.setPixmap(module_icon(module.key).pixmap(34, 34))
         top.addWidget(self.icon_label)
         content.addLayout(top)
 
@@ -72,7 +72,7 @@ class ModuleCard(QFrame):
         summary = QLabel(description)
         summary.setObjectName("suiteCardDescription")
         summary.setWordWrap(True)
-        summary.setMinimumHeight(38)
+        summary.setMinimumHeight(30)
         content.addWidget(summary)
         content.addStretch(1)
 

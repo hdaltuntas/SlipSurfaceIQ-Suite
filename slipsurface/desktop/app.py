@@ -546,6 +546,7 @@ class MainWindow(QMainWindow):
         workspace_layout.setSpacing(8)
         navigation_frame = QFrame()
         navigation_frame.setObjectName("suiteWorkspaceToolbar")
+        navigation_frame.setFixedHeight(54)
         navigation = QHBoxLayout(navigation_frame)
         navigation.setContentsMargins(12, 7, 12, 7)
         navigation.setSpacing(7)
