@@ -12,9 +12,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from slipsurface import CORE_VERSION
-from slipsurface.versioning import is_compatible
-
 from slipsurface.registry import discover
+from slipsurface.versioning import is_compatible
 
 #: The ``importlib.metadata`` group a standalone application registers under
 ENTRY_POINT_GROUP = "slipsurface.apps"
