@@ -45,3 +45,18 @@ Numerical smoke/regression coverage does not replace independent engineering val
 ## License
 
 Proprietary; see LICENSE.
+
+## Validated module updates and Windows QA
+
+A downloaded Python module is verified in a separate interpreter **before**
+replacing an installed version. The source-only desktop launcher retains the
+previous module until the new native PySide6 page opens; if it does not, the
+previous release is restored automatically (or the bundled module is used).
+An update package is not a Windows executable or installer.
+
+External plugins whose `requires_core` specification is not satisfied remain
+listed with an incompatibility explanation; their launch actions are disabled.
+
+Windows source CI verifies `python main.py --help`, Python compilation, Ruff,
+the numerical regression suite, Qt offscreen navigation and rendered screenshots.
+No EXE or standalone desktop package is built.

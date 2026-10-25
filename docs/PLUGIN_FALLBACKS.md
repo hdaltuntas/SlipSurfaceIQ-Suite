@@ -13,3 +13,14 @@ Their session must implement the documented `AppSession` contract. The UI
 should display a recoverable error for an invalid module rather than crash.
 
 Bundled engineering modules retain their own SVG symbols and localized panels.
+
+## Incompatible core handling
+
+Every discovered manifest retains its required core version and carries a
+`compatible` flag in the application catalogue. The native launcher shows
+incompatible applications with an explicit warning and a disabled Open action.
+The sidebar also disables their entries. Direct attempts to open an incompatible
+module are blocked before importing its code.
+
+This makes incompatible releases visible for diagnosis while preventing a
+module compiled against another core contract from running unexpectedly.

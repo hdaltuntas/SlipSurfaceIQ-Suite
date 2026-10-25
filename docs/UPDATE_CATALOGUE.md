@@ -78,3 +78,26 @@ the new module cannot be moved into place.
 The Suite itself remains a Python-source desktop application launched using
 `python main.py`. Optional per-module ZIP updates are **not** Windows EXE
 or installer distribution packages.
+
+## Candidate verification and rollback
+
+SHA-256 and ZIP layout checks run before extraction. After extraction, the
+Suite launches a separate Python interpreter against the staged package and
+verifies that its actual `Session` can be imported and instantiated, satisfies
+the shared module contract, and supplies schema/default metadata. A failed
+preflight leaves the existing module untouched.
+
+During desktop installation, the former installed release is retained under
+`<key>.previous` until a new PySide6 module page has been successfully
+created. An unsuccessful first launch restores the previous installed release.
+If this was the first user-specific installation, rollback instead removes the
+override to expose the bundled version. Successful activation removes the
+backup; an already working release is kept if backup cleanup is temporarily
+blocked by the operating system.
+
+Preflight is intentionally a structural smoke check, not a guarantee that all
+future numerical calculations or third-party dependencies will be error-free.
+Trustworthy source and independent engineering verification are still required.
+
+Windows users continue running `python main.py`. The Windows CI workflow
+validates the source application; it does **not** package or publish an EXE.
