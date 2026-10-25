@@ -33,14 +33,32 @@ def _manifest(key="pile", version="1.1.0", requires_core=">=0.1.0"):
     }
 
 
-def _archive_bytes(manifest, top="release"):
+_MINIMAL_SESSION = """class Session:
+    def __init__(self, lang="tr"):
+        self.lang = lang
+    def meta(self):
+        return {"schema": {}, "defaults": {}}
+    def analyse(self, values):
+        return {"ok": True}
+    def plot(self, target, kind):
+        return b""
+    def report(self, fmt, path):
+        return path
+    def project_file(self, values):
+        return values
+    def load_project(self, payload):
+        return {"ok": True, "values": payload}
+"""
+
+
+def _archive_bytes(manifest, top="release", session_source=_MINIMAL_SESSION):
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr(f"{top}/app.json", json.dumps(manifest))
         archive.writestr(f"{top}/slipsurface_{manifest['key']}/__init__.py", "")
-        archive.writestr(f"{top}/slipsurface_{manifest['key']}/web/session.py", "class Session:  # noqa\n    pass\n")
+        archive.writestr(f"{top}/slipsurface_{manifest['key']}/web/__init__.py", "")
+        archive.writestr(f"{top}/slipsurface_{manifest['key']}/web/session.py", session_source)
     return buffer.getvalue()
-
 
 def _record(key="pile", version="1.1.0", url="https://example.com/pile-1.1.0.zip",
             requires_core=">=0.1.0", sha256=None):

@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
 
 from slipsurface.apps import App, catalogue
 from slipsurface.desktop.icons import module_icon
+from slipsurface.registry import incompatible_modules
 
 
 def module_description(app: App, language: str) -> str:
@@ -180,6 +181,27 @@ class HomePage(QWidget):
         subheading.setObjectName("suiteHomeSubtitle")
         subheading.setWordWrap(True)
         layout.addWidget(subheading)
+
+        # Incompatible releases are not launchable and do not replace a
+        # compatible bundled application. Explain why they were skipped.
+        self.incompatible = incompatible_modules()
+        if self.incompatible:
+            details = ", ".join(
+                f"{item['name']} (requires {item['requires_core']}, core {item['core']})"
+                for item in self.incompatible[:3]
+            )
+            if len(self.incompatible) > 3:
+                details += ", …"
+            warning = QLabel(
+                (
+                    f"{len(self.incompatible)} uyumsuz eklenti yüklenmedi: {details}"
+                    if language == "tr" else
+                    f"{len(self.incompatible)} incompatible plugins were not loaded: {details}"
+                )
+            )
+            warning.setObjectName("suiteIncompatibleBanner")
+            warning.setWordWrap(True)
+            layout.addWidget(warning)
 
         # One quiet banner when any installed application has a newer release.
         available = [update for update in self.updates.values() if update.update_available]

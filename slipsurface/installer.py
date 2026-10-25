@@ -12,6 +12,8 @@ import logging
 import re
 import shutil
 import stat
+import subprocess
+import sys
 import tempfile
 import urllib.parse
 import urllib.request
@@ -22,7 +24,10 @@ from slipsurface import CORE_VERSION
 from slipsurface.registry import USER_APPS_DIR, load_manifest
 from slipsurface.versioning import is_compatible
 
-__all__ = ["InstallError", "install_release", "uninstall", "installed_keys", "download"]
+__all__ = [
+    "InstallError", "install_release", "uninstall", "installed_keys", "download",
+    "rollback_release", "finalize_release", "verify_release",
+]
 
 LOG = logging.getLogger(__name__)
 
@@ -177,8 +182,118 @@ def _is_stale_backup(backup: Path, destination: Path, key: str) -> bool:
     return isinstance(manifest, dict) and manifest.get("key") == key
 
 
+_PROBE_SCRIPT = """
+import importlib
+import inspect
+import sys
+
+# The core is trusted application code; the staged module is the candidate.
+root, core_root, key = sys.argv[1:]
+sys.path.insert(0, core_root)
+sys.path.insert(0, root)
+
+from slipsurface.contract import satisfies_contract
+
+adapter = importlib.import_module(f"slipsurface_{key}.web.session")
+factory = adapter.Session
+parameters = inspect.signature(factory).parameters
+if "lang" in parameters:
+    session = factory(lang="tr")
+elif "language" in parameters:
+    session = factory(language="tr")
+else:
+    session = factory()
+if not satisfies_contract(session):
+    raise TypeError("candidate session fails the Suite AppSession contract")
+meta = session.meta()
+if not isinstance(meta, dict) or not isinstance(meta.get("schema"), dict) or not isinstance(meta.get("defaults"), dict):
+    raise TypeError("candidate session does not expose valid schema and defaults")
+"""
+
+
+def verify_release(staged: Path, key: str, timeout: float = 45.0) -> None:
+    """Test the real installed session before making any live-tree change.
+
+    Use a fresh interpreter to avoid preloading the candidate into the GUI
+    process (which may still have the previous version imported). A subprocess
+    failure or timeout leaves the old version untouched.
+    """
+    key = _key(key)
+    if not (staged / f"slipsurface_{key}" / "web" / "session.py").is_file():
+        raise InstallError("candidate session file is missing")
+    core_root = Path(__file__).resolve().parent.parent
+    try:
+        test = subprocess.run(
+            [sys.executable, "-I", "-c", _PROBE_SCRIPT, str(staged), str(core_root), key],
+            check=False, capture_output=True, text=True, timeout=timeout,
+        )
+    except (OSError, subprocess.TimeoutExpired) as error:
+        raise InstallError(f"module activation preflight could not finish: {error}") from error
+    if test.returncode:
+        explanation = (test.stderr or test.stdout or "unknown error").strip()[-1800:]
+        raise InstallError(f"candidate module cannot start; old version retained: {explanation}")
+
+
+def _live_release(root: Path, key: str, expected_version: str | None) -> Path:
+    """Ensure a follow-up finalize/rollback targets the just-installed module."""
+    key = _key(key)
+    live = root / key
+    if live.is_symlink() or not live.is_dir():
+        raise InstallError("no safe installed module directory to finalize or roll back")
+    try:
+        manifest = load_manifest(json.loads((live / "app.json").read_text(encoding="utf-8")))
+    except (OSError, ValueError) as error:
+        raise InstallError(f"installed module manifest is invalid: {error}") from error
+    if manifest["key"] != key or (expected_version is not None and manifest["version"] != expected_version):
+        raise InstallError("installed module changed since update; refusing rollback")
+    return live
+
+
+def rollback_release(key: str, apps_root: Path | str | None = None,
+                     expected_version: str | None = None) -> None:
+    """Restore the old module after a failed native GUI launch.
+
+    If the module had no previous user-installed version, remove the candidate
+    and rediscover the bundled module instead. Neither operation touches
+    project files stored outside the module directory.
+    """
+    key = _key(key)
+    root = Path(apps_root) if apps_root is not None else USER_APPS_DIR
+    live = _live_release(root, key, expected_version)
+    backup = root / f"{key}.previous"
+    if backup.is_symlink():
+        raise InstallError("unsafe symbolic link at previous release path")
+    if backup.exists() and not _is_stale_backup(backup, live, key):
+        raise InstallError("previous release backup cannot be verified")
+    with tempfile.TemporaryDirectory(prefix=f".{key}-failed-", dir=root) as folder:
+        broken = Path(folder) / "rejected"
+        live.rename(broken)
+        try:
+            if backup.exists():
+                backup.rename(live)
+        except OSError:
+            broken.rename(live)
+            raise
+
+
+def finalize_release(key: str, apps_root: Path | str | None = None,
+                     expected_version: str | None = None) -> None:
+    """Delete a previous user release only after the native module opens."""
+    key = _key(key)
+    root = Path(apps_root) if apps_root is not None else USER_APPS_DIR
+    live = _live_release(root, key, expected_version)
+    backup = root / f"{key}.previous"
+    if backup.is_symlink():
+        raise InstallError("unsafe symbolic link at previous release path")
+    if backup.exists():
+        if not _is_stale_backup(backup, live, key):
+            raise InstallError("previous release backup cannot be verified")
+        shutil.rmtree(backup)
+
+
 def install_release(
-    record, apps_root: Path | str | None = None, core: str = CORE_VERSION, fetch=None
+    record, apps_root: Path | str | None = None, core: str = CORE_VERSION, fetch=None,
+    retain_backup: bool = False,
 ) -> dict:
     """Verify a release then replace one user-installed module with rollback."""
     if not isinstance(record, dict):
@@ -232,6 +347,7 @@ def install_release(
             with tempfile.TemporaryDirectory(prefix=f".{key}-staging-", dir=root_dir) as temp:
                 staged = Path(temp) / "release"
                 _extract(archive, root, staged)
+                verify_release(staged, key)
                 had_previous = destination.exists()
                 if had_previous:
                     destination.rename(backup)
@@ -241,7 +357,7 @@ def install_release(
                     if had_previous:
                         backup.rename(destination)
                     raise
-                if had_previous:
+                if had_previous and not retain_backup:
                     # The new release is live: failing to delete the old copy
                     # (a locked file, say) must not report the update as failed.
                     # A leftover backup is never discovered as a module and is

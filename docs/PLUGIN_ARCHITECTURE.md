@@ -220,3 +220,32 @@ must provide the methods in `slipsurface.contract.AppSession`; Kinematic
 also supports this shared contract while keeping its specialist calls.
 
 The desktop launcher is still started solely by `python main.py`.
+
+## Preflight and two-phase activation
+
+The release installer first validates the SHA-256 digest, archive structure and
+core compatibility. Before any live module directory is changed, it extracts
+the candidate to a staging directory and launches a fresh isolated Python
+interpreter to import the candidate's actual `Session`, instantiate it,
+verify `AppSession` methods, and inspect its editable schema/defaults.
+Import errors and timeouts leave the working release intact.
+
+For updates started from PySide6, `install_release(..., retain_backup=True)`
+holds the previous user-installed module as `<key>.previous` until the native
+`ModulePage` successfully initializes. A good activation calls
+`finalize_release`; a failure invokes `rollback_release`. If no previous
+user-installation exists, rollback removes the candidate and uses the original
+bundled module. User project JSON files are saved outside the module directory.
+
+`registry.discover()` excludes manifests whose `requires_core` constraint
+is incompatible with `slipsurface.CORE_VERSION`, and
+`registry.incompatible_modules()` supplies their names and required core
+versions for the launchpad warning. Incompatible releases do not add their
+Python code to `sys.path`.
+
+Native Linux and Windows source validation runs the numerical regressions and
+offscreen Qt tests; no Windows executable or distribution installer is built.
+
+Note that Python plug-in releases still execute code with the current user's
+permissions; use a trusted release catalogue. SHA-256 is an integrity check,
+not publisher authentication.
