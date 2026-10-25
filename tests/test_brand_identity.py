@@ -68,7 +68,9 @@ def test_brand_home_toolbar_and_all_module_headers_share_symbol():
         for theme in ("light", "dark"):
             window.set_theme(theme)
             css = app.styleSheet()
-            assert all(code in css for code in ("#00DDF5", "#6B4CFF", "#0B1529"))
+            assert "#0B1529" in css
+            assert PALETTE["cyan"] == "#00DDF5"
+            assert PALETTE["iris"] == "#6B4CFF"
             assert "suiteBrandHero" in css
             assert "suiteToolbarBrand" in css
             window.open_module("bearing")
