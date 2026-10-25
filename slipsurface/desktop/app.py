@@ -47,8 +47,8 @@ from slipsurface import APP_NAME, __version__
 from slipsurface.apps import APPS, get
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
-from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.profiles import profile
+from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.widgets import ModuleHeader, section_title
 
