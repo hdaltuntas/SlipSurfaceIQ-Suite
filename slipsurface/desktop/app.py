@@ -803,6 +803,7 @@ class MainWindow(QMainWindow):
         self.language = language
         self.theme = theme
         self.pages = {}
+        self._update_task = None
         self.setWindowTitle(f"{APP_NAME}  ·  {__version__}")
         self.resize(1480, 900)
         self.setMinimumSize(950, 600)
@@ -920,8 +921,14 @@ class MainWindow(QMainWindow):
 
     def install_update(self, key: str):
         """Download and install one module release in a background thread."""
+        if self._update_task is not None:
+            QMessageBox.information(
+                self, "Update", _say(self.language,
+                    "Another module update is still in progress.",
+                    "Başka bir modülün güncellemesi devam ediyor."))
+            return
         update = self.available_updates.get(key)
-        if update is None or not update.url:
+        if update is None or not update.url or not update.sha256:
             QMessageBox.information(
                 self,
                 _say(self.language, "No downloadable release", "İndirilebilir sürüm yok"),
@@ -944,6 +951,31 @@ class MainWindow(QMainWindow):
         )
         if answer != QMessageBox.StandardButton.Yes:
             return
+        # Never unload Python classes still serving a background analysis,
+        # and never discard a live editor without first saving its project.
+        active_page = self.pages.get(key)
+        if active_page is not None:
+            if active_page.busy:
+                QMessageBox.warning(
+                    self, _say(self.language, "Analysis running", "Hesaplama sürüyor"),
+                    _say(self.language,
+                        "Finish the running analysis before updating this module.",
+                        "Bu modülü güncellemeden önce hesaplamanın tamamlanmasını bekleyin."))
+                return
+            path, _ = QFileDialog.getSaveFileName(
+                self, _say(self.language, "Save open project before update",
+                           "Güncellemeden önce açık projeyi kaydedin"),
+                f"{key}-before-update.json", "JSON projects (*.json)"
+            )
+            if not path:
+                return
+            try:
+                active_page.save_project(path)
+            except Exception as error:
+                QMessageBox.warning(
+                    self, _say(self.language, "Project save failed", "Proje kaydedilemedi"),
+                    str(error))
+                return
         self.statusBar().showMessage(
             _say(self.language, f"Downloading {name}…", f"{name} indiriliyor…")
         )
@@ -952,6 +984,7 @@ class MainWindow(QMainWindow):
             "version": update.latest,
             "url": update.url,
             "requires_core": update.requires_core,
+            "sha256": update.sha256,
         }
 
         def run_install():
@@ -960,12 +993,17 @@ class MainWindow(QMainWindow):
             return installer.install_release(record)
 
         self._update_task = AnalysisTask(run_install)
+        self.workspace.setEnabled(False)
+        self.home.setEnabled(False)
         self._update_task.signals.finished.connect(self._update_installed)
         QThreadPool.globalInstance().start(self._update_task)
 
     def _update_installed(self, result, error):
+        self.workspace.setEnabled(True)
+        self.home.setEnabled(True)
+        self._update_task = None
         if error is not None or not isinstance(result, dict):
-            LOG.exception("Module update failed")
+            LOG.error("Module update failed: %s", error)
             QMessageBox.warning(
                 self,
                 _say(self.language, "Update failed", "Güncelleme başarısız"),
