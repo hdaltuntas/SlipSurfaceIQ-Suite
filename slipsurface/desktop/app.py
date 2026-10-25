@@ -990,13 +990,35 @@ class MainWindow(QMainWindow):
         def run_install():
             from slipsurface import installer
 
-            return installer.install_release(record)
+            return installer.install_release(record, retain_backup=True)
 
         self._update_task = AnalysisTask(run_install)
         self.workspace.setEnabled(False)
         self.home.setEnabled(False)
         self._update_task.signals.finished.connect(self._update_installed)
         QThreadPool.globalInstance().start(self._update_task)
+
+    def _verify_updated_module(self, key: str):
+        """Try the new native page while the previous release still exists.
+
+        The installer first checks Session/meta in an isolated subprocess.
+        This second check catches actual PySide6 page-construction failures.
+        Only a fully initialized page allows deletion of the backup.
+        """
+        app_catalogue.refresh()
+        session = app_catalogue.get(key).session
+        root_package = session.removesuffix(".web.session")
+        for module_name in list(sys.modules):
+            if module_name == root_package or module_name.startswith(root_package + "."):
+                del sys.modules[module_name]
+        importlib.invalidate_caches()
+        page = ModulePage(key, self.language)
+        try:
+            if hasattr(page.session, "set_theme"):
+                page.session.set_theme(self.theme)
+            page.current_values()
+        finally:
+            page.deleteLater()
 
     def _update_installed(self, result, error):
         self.workspace.setEnabled(True)
@@ -1014,21 +1036,58 @@ class MainWindow(QMainWindow):
                 ),
             )
             return
+
+        from slipsurface import installer
+
         key = result["key"]
+        installed_version = result["version"]
+        try:
+            self._verify_updated_module(key)
+        except Exception as exc:
+            LOG.exception("New module failed native activation: %s", key)
+            rollback_issue = ""
+            try:
+                installer.rollback_release(key, expected_version=installed_version)
+            except Exception as rollback_error:
+                LOG.exception("Rollback failed for module %s", key)
+                rollback_issue = f"\nRollback also failed: {rollback_error}"
+            finally:
+                # The previous page is retained; rediscovery removes bad
+                # session modules from the candidate import path.
+                app_catalogue.refresh()
+                importlib.invalidate_caches()
+            QMessageBox.warning(
+                self,
+                _say(self.language, "Module reverted", "Modül geri alındı"),
+                _say(
+                    self.language,
+                    f"The updated module failed to open. The previous release was restored.\n{exc}",
+                    f"Güncellenen modül açılamadı. Önceki sürüme geri dönüldü.\n{exc}",
+                ) + rollback_issue,
+            )
+            return
+
+        # An inability to remove a locked backup must never turn an already
+        # running and verified module into a failed installation.
+        try:
+            installer.finalize_release(key, expected_version=installed_version)
+        except (OSError, installer.InstallError):
+            LOG.warning("Update works, but previous release backup remains for %s", key)
         name = get(key).name if key in app_catalogue.keys() else key
         self.statusBar().showMessage(
-            _say(self.language, f"{name} {result['version']} installed", f"{name} {result['version']} kuruldu")
+            _say(self.language, f"{name} {installed_version} installed",
+                 f"{name} {installed_version} kuruldu")
         )
+        self._refresh_after_update(key)
         QMessageBox.information(
             self,
             _say(self.language, "Update installed", "Güncelleme kuruldu"),
             _say(
                 self.language,
-                f"{name} has been updated to {result['version']}.",
-                f"{name} uygulaması {result['version']} sürümüne güncellendi.",
+                f"{name} has been updated to {installed_version}.",
+                f"{name} uygulaması {installed_version} sürümüne güncellendi.",
             ),
         )
-        self._refresh_after_update(key)
 
     def _refresh_after_update(self, key: str):
         """Rebuild catalogue, launchpad and navigator after an install."""
