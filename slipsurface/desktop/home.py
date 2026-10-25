@@ -1,8 +1,6 @@
 """Native clickable module launchpad shown when the Suite starts."""
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
