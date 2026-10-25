@@ -4,7 +4,6 @@ Standard-library friendly: nothing here imports PySide6, so the checks run
 in any environment that has the package on ``sys.path``.
 """
 import json
-from pathlib import Path
 
 from slipsurface import CORE_VERSION
 from slipsurface.apps import APPS, keys
@@ -108,10 +107,10 @@ def test_updater_reports_only_newer_releases():
     assert AppUpdate("pile", "1.0.0", "1.0.0").update_available is False
 
 
-def test_updater_reads_a_catalogue_file(tmp_path=None):
+def test_updater_reads_a_catalogue_file(tmp_path):
     from slipsurface.desktop.updater import read_index
 
-    path = Path(tmp_path or ".") / "slipsurface-index.json"
+    path = tmp_path / "slipsurface-index.json"
     path.write_text(json.dumps({"pile": {"version": "1.2.0"}}), encoding="utf-8")
     try:
         index = read_index(path)

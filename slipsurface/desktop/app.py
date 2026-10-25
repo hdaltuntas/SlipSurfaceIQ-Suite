@@ -1043,6 +1043,9 @@ class MainWindow(QMainWindow):
                 if name == root_package or name.startswith(f"{root_package}.")
             ]:
                 del sys.modules[module_name]
+        # The release directory was swapped by a rename; finders may still
+        # hold the old directory listing.
+        importlib.invalidate_caches()
         self.available_updates = load_available_updates()
         stale = self.pages.pop(key, None)
         if stale is not None:

@@ -4,7 +4,6 @@ import io
 import json
 import sys
 import zipfile
-from pathlib import Path
 
 import pytest
 
@@ -55,8 +54,8 @@ def _record(key="pile", version="1.1.0", url="https://example.com/pile-1.1.0.zip
     }
 
 
-def test_install_release_unpacks_and_reports_the_manifest(tmp_path=None):
-    apps = Path(tmp_path or ".") / "apps"
+def test_install_release_unpacks_and_reports_the_manifest(tmp_path):
+    apps = tmp_path / "apps"
     manifest = install_release(
         _record(), apps_root=apps, fetch=lambda url: _archive_bytes(_manifest())
     )
@@ -74,8 +73,8 @@ def test_install_release_unpacks_and_reports_the_manifest(tmp_path=None):
     assert not (apps / "pile.previous").exists()
 
 
-def test_installed_release_overrides_the_bundled_module(tmp_path=None):
-    apps = Path(tmp_path or ".") / "apps"
+def test_installed_release_overrides_the_bundled_module(tmp_path):
+    apps = tmp_path / "apps"
     assert [m["key"] for m in discover(apps)] == EXPECTED_ORDER
     install_release(
         _record(), apps_root=apps, fetch=lambda url: _archive_bytes(_manifest())
@@ -90,8 +89,8 @@ def test_installed_release_overrides_the_bundled_module(tmp_path=None):
     assert uninstall("pile", apps_root=apps) is False
 
 
-def test_install_rejects_mismatched_key_version_and_core(tmp_path=None):
-    apps = Path(tmp_path or ".") / "apps"
+def test_install_rejects_mismatched_key_version_and_core(tmp_path):
+    apps = tmp_path / "apps"
     try:
         install_release(
             _record(), apps_root=apps, fetch=lambda url: _archive_bytes(_manifest(key="rock"))
@@ -118,8 +117,8 @@ def test_install_rejects_mismatched_key_version_and_core(tmp_path=None):
     assert installed_keys(apps) == []
 
 
-def test_install_rejects_unsafe_archive_paths(tmp_path=None):
-    apps = Path(tmp_path or ".") / "apps"
+def test_install_rejects_unsafe_archive_paths(tmp_path):
+    apps = tmp_path / "apps"
     buffer = io.BytesIO()
     with zipfile.ZipFile(buffer, "w") as archive:
         archive.writestr("app.json", json.dumps(_manifest()))
@@ -133,7 +132,7 @@ def test_install_rejects_unsafe_archive_paths(tmp_path=None):
     assert installed_keys(apps) == []
 
 
-def test_updater_carries_the_download_url(tmp_path=None):
+def test_updater_carries_the_download_url():
     updates = check({
         "pile": {"version": "1.1.0", "url": "https://example.com/pile-1.1.0.zip"},
         "rock": "1.1.0",
@@ -143,8 +142,8 @@ def test_updater_carries_the_download_url(tmp_path=None):
     assert AppUpdate("pile", "1.0.0", "1.0.0").update_available is False
 
 
-def test_download_reads_file_urls(tmp_path=None):
-    archive_path = Path(tmp_path or ".") / "pile-1.0.9.zip"
+def test_download_reads_file_urls(tmp_path):
+    archive_path = tmp_path / "pile-1.0.9.zip"
     archive_path.write_bytes(_archive_bytes(_manifest(version="1.0.9")))
     data = installer.download(archive_path.resolve().as_uri())
     with zipfile.ZipFile(io.BytesIO(data)) as archive:
@@ -155,33 +154,9 @@ def test_download_reads_file_urls(tmp_path=None):
         {"key": "pile", "version": "1.0.9", "url": archive_path.resolve().as_uri(),
          "requires_core": ">=0.1.0",
          "sha256": hashlib.sha256(data).hexdigest()},
-        apps_root=Path(tmp_path or ".") / "apps",
+        apps_root=tmp_path / "apps",
     )
     assert installed["version"] == "1.0.9"
-
-
-def run_all():
-    import tempfile
-
-    failures = 0
-    for name, function in sorted(globals().items()):
-        if not name.startswith("test_"):
-            continue
-        try:
-            function(tmp_path=tempfile.mkdtemp())
-            print("PASS", name)
-        except Exception:
-            failures += 1
-            print("FAIL", name)
-            import traceback
-
-            traceback.print_exc()
-    return failures
-
-
-if __name__ == "__main__":
-    sys.exit(run_all())
-
 
 
 def test_key_validation_blocks_directory_escape(tmp_path):
@@ -261,3 +236,96 @@ def test_missing_code_is_refused_before_installation(tmp_path):
 def test_unverified_http_url_is_refused(tmp_path):
     with pytest.raises(InstallError, match="HTTPS"):
         install_release(_record(url="http://example.com/archive.zip"), apps_root=tmp_path)
+
+
+def _installed_dir(root, name, version):
+    directory = root / name
+    (directory / "slipsurface_pile" / "web").mkdir(parents=True)
+    (directory / "app.json").write_text(json.dumps(_manifest(version=version)))
+    return directory
+
+
+def test_leftover_backup_never_shadows_the_live_release(tmp_path):
+    root = tmp_path / "apps"
+    live = _installed_dir(root, "pile", "2.0.0")
+    stale = _installed_dir(root, "pile.previous", "1.0.0")
+    try:
+        manifests = {m["key"]: m for m in discover(root)}
+        assert manifests["pile"]["version"] == "2.0.0"
+        assert str(stale) not in sys.path
+    finally:
+        if str(live) in sys.path:
+            sys.path.remove(str(live))
+
+
+def test_installed_release_comes_first_on_sys_path(tmp_path):
+    root = tmp_path / "apps"
+    live = _installed_dir(root, "pile", "2.0.0")
+    try:
+        discover(root)
+        assert sys.path[0] == str(live)
+    finally:
+        sys.path.remove(str(live))
+
+
+def test_release_directory_with_extra_modules_is_ignored(tmp_path):
+    root = tmp_path / "apps"
+    live = _installed_dir(root, "pile", "2.0.0")
+    (live / "json.py").write_text("raise SystemExit('shadowed')")
+    manifests = {m["key"]: m for m in discover(root)}
+    assert manifests["pile"]["version"] == "1.0.0"  # the bundled module
+    assert str(live) not in sys.path
+
+
+def test_release_archive_with_extra_top_level_module_is_refused(tmp_path):
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w") as archive:
+        archive.writestr("release/app.json", json.dumps(_manifest()))
+        archive.writestr("release/slipsurface_pile/__init__.py", "")
+        archive.writestr("release/slipsurface_pile/web/session.py", "class Session: pass")
+        archive.writestr("release/json.py", "raise SystemExit('shadowed')")
+    data = buffer.getvalue()
+    with pytest.raises(InstallError, match="unexpected top-level"):
+        install_release(_record(sha256=hashlib.sha256(data).hexdigest()),
+                        apps_root=tmp_path, fetch=lambda _: data)
+    assert installed_keys(tmp_path) == []
+
+
+def test_failed_backup_cleanup_still_reports_success(tmp_path, monkeypatch):
+    root = tmp_path / "apps"
+    install_release(_record(), apps_root=root, fetch=lambda _: _archive_bytes(_manifest()))
+    real_rmtree = installer.shutil.rmtree
+
+    def locked(path, *args, **kwargs):
+        if str(path).endswith(".previous") and not kwargs.get("ignore_errors"):
+            raise PermissionError("file in use")
+        return real_rmtree(path, *args, **kwargs)
+
+    monkeypatch.setattr(installer.shutil, "rmtree", locked)
+    manifest = install_release(
+        _record(version="1.2.0"), apps_root=root,
+        fetch=lambda _: _archive_bytes(_manifest(version="1.2.0")),
+    )
+    assert manifest["version"] == "1.2.0"
+    assert (root / "pile.previous").is_dir()
+    monkeypatch.setattr(installer.shutil, "rmtree", real_rmtree)
+    # The leftover copy does not block the next update.
+    manifest = install_release(
+        _record(version="1.3.0"), apps_root=root,
+        fetch=lambda _: _archive_bytes(_manifest(version="1.3.0")),
+    )
+    assert manifest["version"] == "1.3.0"
+    assert not (root / "pile.previous").exists()
+
+
+def test_one_malformed_catalogue_record_does_not_hide_the_others():
+    updates = check({
+        "pile": {"version": "9.0.0"},
+        "rock": {"version": "latest"},
+        "wall": {"version": "9.0.0", "requires_core": "~1.0"},
+    })
+    assert set(updates) == {"pile"}
+
+
+if __name__ == "__main__":
+    sys.exit(pytest.main([__file__]))

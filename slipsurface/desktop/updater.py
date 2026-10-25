@@ -29,7 +29,7 @@ from pathlib import Path
 
 from slipsurface import CORE_VERSION
 from slipsurface.apps import App, catalogue
-from slipsurface.versioning import compare, is_compatible
+from slipsurface.versioning import VersionError, compare, is_compatible
 
 __all__ = ["AppUpdate", "read_index", "check", "load_available_updates"]
 
@@ -88,16 +88,22 @@ def check(index: dict, apps: tuple[App, ...] = None, core: str = CORE_VERSION) -
     for app in apps:
         record = index.get(app.key)
         latest = _record_version(record)
-        if not latest or compare(app.version, latest) >= 0:
+        # A malformed record is skipped on its own, so it cannot hide the
+        # valid updates of every other application in the same catalogue.
+        try:
+            if not latest or compare(app.version, latest) >= 0:
+                continue
+            requires_core = record.get("requires_core", "") if isinstance(record, dict) else ""
+            core_ok = is_compatible(core, requires_core)
+        except VersionError:
             continue
-        requires_core = record.get("requires_core", "") if isinstance(record, dict) else ""
         updates[app.key] = AppUpdate(
             key=app.key,
             installed=app.version,
             latest=latest,
             changelog=record.get("changelog", "") if isinstance(record, dict) else "",
             requires_core=requires_core,
-            core_ok=is_compatible(core, requires_core),
+            core_ok=core_ok,
             url=record.get("url", "") if isinstance(record, dict) else "",
             sha256=record.get("sha256", "") if isinstance(record, dict) else "",
         )
