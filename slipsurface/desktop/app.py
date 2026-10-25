@@ -1004,7 +1004,7 @@ class MainWindow(QMainWindow):
         def run_install():
             from slipsurface import installer
 
-            return installer.install_release(record)
+            return installer.install_release(record, keep_backup=True)
 
         self._update_task = AnalysisTask(run_install)
         self.workspace.setEnabled(False)
@@ -1023,26 +1023,68 @@ class MainWindow(QMainWindow):
                 _say(self.language, "Update failed", "Güncelleme başarısız"),
                 _say(
                     self.language,
-                    f"The release could not be installed: {error}",
-                    f"Sürüm kurulamadı: {error}",
+                    f"The candidate was rejected; the working release is intact: {error}",
+                    f"Yeni sürüm reddedildi; mevcut sürüm korundu: {error}",
                 ),
             )
             return
+
+        from slipsurface import installer
+
         key = result["key"]
-        name = get(key).name if key in app_catalogue.keys() else key
+        try:
+            self._refresh_after_update(key)
+            # Only consider the update committed when the *actual native page*
+            # has been constructed from the newly installed session.
+            self.open_module(key)
+            if key not in self.pages or self.current_page() is not self.pages[key]:
+                raise RuntimeError("updated module could not open its native workspace")
+        except Exception as open_error:
+            LOG.exception("Module failed first launch; restoring previous version")
+            try:
+                installer.rollback_release(key)
+                self._refresh_after_update(key)
+            except Exception as rollback_error:
+                LOG.exception("Automatic module rollback failed")
+                QMessageBox.critical(
+                    self,
+                    _say(self.language, "Rollback failed", "Geri alma başarısız"),
+                    f"{open_error}\n{rollback_error}",
+                )
+                return
+            QMessageBox.warning(
+                self,
+                _say(self.language, "Update rolled back", "Güncelleme geri alındı"),
+                _say(
+                    self.language,
+                    f"The updated module failed to open. The previous release was restored: {open_error}",
+                    f"Yeni modül açılamadı. Önceki sürüm geri yüklendi: {open_error}",
+                ),
+            )
+            return
+
+        try:
+            installer.confirm_release(key)
+        except OSError:
+            # The new module is already working; a locked backup can be
+            # cleaned on the next update rather than reversing a good upgrade.
+            LOG.warning("Could not remove old release after successful first launch", exc_info=True)
         self.statusBar().showMessage(
-            _say(self.language, f"{name} {result['version']} installed", f"{name} {result['version']} kuruldu")
+            _say(
+                self.language,
+                f"{get(key).name} {result['version']} installed and opened",
+                f"{get(key).name} {result['version']} kuruldu ve açıldı",
+            )
         )
         QMessageBox.information(
             self,
             _say(self.language, "Update installed", "Güncelleme kuruldu"),
             _say(
                 self.language,
-                f"{name} has been updated to {result['version']}.",
-                f"{name} uygulaması {result['version']} sürümüne güncellendi.",
+                f"{get(key).name} {result['version']} was validated and opened.",
+                f"{get(key).name} {result['version']} doğrulandı ve açıldı.",
             ),
         )
-        self._refresh_after_update(key)
 
     def _refresh_after_update(self, key: str):
         """Rebuild catalogue, launchpad and navigator after an install."""
