@@ -11,9 +11,10 @@ import importlib
 import inspect
 import json
 import logging
+import os
 import sys
 
-from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, Signal
+from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
@@ -48,10 +49,12 @@ from slipsurface import APP_NAME, __version__
 from slipsurface import apps as app_catalogue
 from slipsurface.apps import forms_path, get, session_path
 from slipsurface.contract import satisfies_contract
+from slipsurface.desktop.brand import application_icon, symbol_icon
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.profiles import profile
 from slipsurface.desktop.results import ResultsPanel
+from slipsurface.desktop.splash import BrandSplash
 from slipsurface.desktop.theme import stylesheet
 from slipsurface.desktop.updater import load_available_updates
 from slipsurface.desktop.widgets import ModuleHeader, section_title
@@ -805,6 +808,7 @@ class MainWindow(QMainWindow):
         self.pages = {}
         self._update_task = None
         self.setWindowTitle(f"{APP_NAME}  ·  {__version__}")
+        self.setWindowIcon(application_icon())
         self.resize(1480, 900)
         self.setMinimumSize(950, 600)
         self._create_actions()
@@ -828,6 +832,17 @@ class MainWindow(QMainWindow):
         navigation = QHBoxLayout(navigation_frame)
         navigation.setContentsMargins(12, 7, 12, 7)
         navigation.setSpacing(7)
+        self.toolbar_brand_mark = QLabel()
+        self.toolbar_brand_mark.setObjectName("suiteToolbarMark")
+        self.toolbar_brand_mark.setFixedSize(25, 34)
+        self.toolbar_brand_mark.setAlignment(Qt.AlignCenter)
+        self.toolbar_brand_mark.setPixmap(symbol_icon().pixmap(25, 34))
+        self.toolbar_brand_mark.setToolTip("SlipSurfaceIQ")
+        navigation.addWidget(self.toolbar_brand_mark)
+        self.toolbar_brand = QLabel("SlipSurfaceIQ")
+        self.toolbar_brand.setObjectName("suiteToolbarBrand")
+        navigation.addWidget(self.toolbar_brand)
+        navigation.addSpacing(12)
         self.back_button = QPushButton(
             "‹  Tüm programlar" if language == "tr" else "‹  All applications"
         )
@@ -1238,10 +1253,33 @@ def main(argv=None) -> int:
     parser.add_argument("--theme", choices=("light", "dark"), default="light")
     parser.add_argument("--app", choices=app_catalogue.keys(), default=None,
                         help="Open a module directly instead of the home dashboard")
+    parser.add_argument(
+        "--no-splash", action="store_true",
+        help="Skip the branded startup screen (also automatic for headless Qt)"
+    )
     args = parser.parse_args(argv)
     app = QApplication.instance() or QApplication(sys.argv[:1])
     app.setStyle("Fusion")
     app.setApplicationName(APP_NAME)
+    app.setWindowIcon(application_icon())
+    splash = None
+    if (
+        args.app is None
+        and not args.no_splash
+        and not os.environ.get("SLIPSURFACE_NO_SPLASH")
+        and app.platformName().lower() not in {"offscreen", "minimal"}
+    ):
+        splash = BrandSplash(args.lang)
+        splash.show()
+        app.processEvents()
+
     window = MainWindow(args.lang, args.theme, args.app)
-    window.show()
+    if splash is None:
+        window.show()
+    else:
+        def present_workspace():
+            window.show()
+            splash.finish(window)
+
+        QTimer.singleShot(850, present_workspace)
     return app.exec()

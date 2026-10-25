@@ -5,6 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from slipsurface.apps import get
+from slipsurface.desktop.brand import symbol_icon
 from slipsurface.desktop.icons import module_icon
 
 
@@ -50,6 +51,15 @@ class ModuleHeader(QFrame):
         self.subtitle_label.setWordWrap(True)
         title_stack.addWidget(self.subtitle_label)
         outer.addLayout(title_stack, 1)
+
+        self.brand_mark = QLabel()
+        self.brand_mark.setObjectName("suiteHeaderBrand")
+        self.brand_mark.setFixedSize(24, 32)
+        self.brand_mark.setAlignment(Qt.AlignCenter)
+        self.brand_mark.setPixmap(symbol_icon().pixmap(24, 32))
+        self.brand_mark.setToolTip("SlipSurfaceIQ")
+        outer.addWidget(self.brand_mark)
+
         self.actions = QHBoxLayout()
         self.actions.setSpacing(8)
         outer.addLayout(self.actions)

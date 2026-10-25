@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 )
 
 from slipsurface.apps import App, catalogue
+from slipsurface.desktop.brand import BRAND_DESCRIPTOR, BRAND_NAME, symbol_icon
 from slipsurface.desktop.icons import module_icon
 from slipsurface.registry import incompatible_modules
 
@@ -162,10 +163,62 @@ class HomePage(QWidget):
         body.setObjectName("suiteHomeBody")
         scroll.setWidget(body)
         layout = QVBoxLayout(body)
-        layout.setContentsMargins(38, 34, 38, 36)
-        layout.setSpacing(20)
+        layout.setContentsMargins(32, 24, 32, 32)
+        layout.setSpacing(14)
 
-        eyebrow = QLabel("SLIPSURFACEIQ  /  ENGINEERING DESKTOP")
+        # Original user-approved S logo and core product identity.
+        # The hero stays midnight in both themes so the neon mark is legible.
+        self.brand_hero = QFrame()
+        self.brand_hero.setObjectName("suiteBrandHero")
+        self.brand_hero.setMinimumHeight(148)
+        hero_layout = QHBoxLayout(self.brand_hero)
+        hero_layout.setContentsMargins(26, 16, 28, 16)
+        hero_layout.setSpacing(20)
+
+        self.brand_mark = QLabel()
+        self.brand_mark.setObjectName("suiteBrandMark")
+        self.brand_mark.setAlignment(Qt.AlignCenter)
+        self.brand_mark.setFixedSize(84, 108)
+        self.brand_mark.setPixmap(symbol_icon().pixmap(84, 108))
+        hero_layout.addWidget(self.brand_mark)
+
+        identity = QVBoxLayout()
+        identity.setSpacing(3)
+        name_row = QHBoxLayout()
+        name_row.setSpacing(0)
+        self.brand_title = QLabel("SlipSurface")
+        self.brand_title.setObjectName("suiteBrandName")
+        self.brand_suffix = QLabel("IQ")
+        self.brand_suffix.setObjectName("suiteBrandIQ")
+        name_row.addWidget(self.brand_title)
+        name_row.addWidget(self.brand_suffix)
+        name_row.addStretch()
+        identity.addLayout(name_row)
+
+        self.brand_descriptor = QLabel(BRAND_DESCRIPTOR)
+        self.brand_descriptor.setObjectName("suiteBrandDescriptor")
+        identity.addWidget(self.brand_descriptor)
+
+        self.brand_motto = QLabel(
+            "MODELLE   /   ANALİZ ET   /   TASARLA" if language == "tr"
+            else "MODEL   /   ANALYZE   /   DESIGN"
+        )
+        self.brand_motto.setObjectName("suiteBrandMotto")
+        identity.addWidget(self.brand_motto)
+        hero_layout.addLayout(identity, 1)
+
+        self.hero_category = QLabel(
+            "GEOTEKNİK  •  KAYA  •  TEMELLER" if language == "tr"
+            else "GEOTECHNICS  •  ROCK  •  FOUNDATIONS"
+        )
+        self.hero_category.setObjectName("suiteBrandCategory")
+        self.hero_category.setWordWrap(True)
+        self.hero_category.setAlignment(Qt.AlignRight | Qt.AlignVCenter)
+        hero_layout.addWidget(self.hero_category)
+        self.brand_hero.setAccessibleName(BRAND_NAME)
+        layout.addWidget(self.brand_hero)
+
+        eyebrow = QLabel("UYGULAMA KATALOĞU  /  MODULE LIBRARY")
         eyebrow.setObjectName("suiteHomeEyebrow")
         layout.addWidget(eyebrow)
 

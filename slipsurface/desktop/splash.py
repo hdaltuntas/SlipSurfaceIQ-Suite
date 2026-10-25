@@ -4,7 +4,16 @@ from __future__ import annotations
 import math
 
 from PySide6.QtCore import QPointF, Qt
-from PySide6.QtGui import QColor, QFont, QLinearGradient, QPainter, QPen, QPixmap, QRadialGradient
+from PySide6.QtGui import (
+    QBrush,
+    QColor,
+    QFont,
+    QLinearGradient,
+    QPainter,
+    QPen,
+    QPixmap,
+    QRadialGradient,
+)
 from PySide6.QtWidgets import QSplashScreen
 
 from slipsurface.desktop.brand import BRAND_DESCRIPTOR, BRAND_NAME, PALETTE, symbol_icon
@@ -74,7 +83,7 @@ class BrandSplash(QSplashScreen):
         for stop, color in [(0, PALETTE["cyan"]), (0.5, PALETTE["blue"]),
                             (0.8, PALETTE["iris"]), (1, PALETTE["violet"])]:
             line_gradient.setColorAt(stop, QColor(color))
-        painter.setPen(QPen(line_gradient, 3.0))
+        painter.setPen(QPen(QBrush(line_gradient), 3.0))
         painter.drawLine(100, 351, 800, 351)
 
         painter.setPen(QColor("#8CA4C6"))
