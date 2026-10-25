@@ -299,6 +299,11 @@ class ModulePage(QWidget):
         super().__init__(parent)
         self.key = key
         self.language = language
+        item = get(key)
+        if not item.compatible:
+            raise ValueError(
+                f"{key} requires core {item.requires_core}; current core is incompatible"
+            )
         adapter = importlib.import_module(session_path(key))
         factory = adapter.Session
         parameters = inspect.signature(factory).parameters
@@ -915,6 +920,15 @@ class MainWindow(QMainWindow):
                 module.description_tr if self.language == "tr" else module.description
             )
             item.setIcon(module_icon(module.key))
+            if not module.compatible:
+                item.setFlags(item.flags() & ~Qt.ItemFlag.ItemIsEnabled)
+                item.setToolTip(
+                    _say(
+                        self.language,
+                        f"Core incompatible; requires {module.requires_core}.",
+                        f"Çekirdek uyumsuz; gerekli sürüm {module.requires_core}.",
+                    )
+                )
             self.navigator.addItem(item)
         self.navigator.blockSignals(False)
         self.navigator.setCurrentRow(-1)
@@ -1081,6 +1095,18 @@ class MainWindow(QMainWindow):
         """Open a card's module, retaining existing page state on return."""
         if key not in app_catalogue.keys():
             raise KeyError(f"Unknown module: {key}")
+        candidate = get(key)
+        if not candidate.compatible:
+            QMessageBox.warning(
+                self,
+                _say(self.language, "Incompatible application", "Uyumsuz uygulama"),
+                _say(
+                    self.language,
+                    f"{candidate.name} requires core {candidate.requires_core}.",
+                    f"{candidate.tr} çekirdek {candidate.requires_core} sürümünü gerektiriyor.",
+                ),
+            )
+            return
         for index in range(self.navigator.count()):
             item = self.navigator.item(index)
             if item.data(Qt.UserRole) == key:
@@ -1094,6 +1120,9 @@ class MainWindow(QMainWindow):
         if current is None:
             return
         key = current.data(Qt.UserRole)
+        if not get(key).compatible:
+            self.show_home()
+            return
         if key not in self.pages:
             try:
                 page = ModulePage(key, self.language)

@@ -11,6 +11,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from slipsurface import CORE_VERSION
+from slipsurface.versioning import is_compatible
+
 from slipsurface.registry import discover
 
 #: The ``importlib.metadata`` group a standalone application registers under
@@ -33,6 +36,7 @@ class App:
     version: str = "1.0.0"
     requires_core: str = ""
     session: str = ""
+    compatible: bool = True
 
 
 def _from_manifest(manifest: dict) -> App:
@@ -41,6 +45,7 @@ def _from_manifest(manifest: dict) -> App:
         version=manifest.get("version", "1.0.0"),
         requires_core=manifest.get("requires_core", ""),
         session=manifest.get("session", ""),
+        compatible=is_compatible(CORE_VERSION, manifest.get("requires_core", "")),
     )
 
 

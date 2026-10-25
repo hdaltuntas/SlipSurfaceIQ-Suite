@@ -76,11 +76,28 @@ class ModuleCard(QFrame):
         summary.setMinimumHeight(30)
         content.addWidget(summary)
 
+        if not module.compatible:
+            self.setToolTip(
+                f"{name}: " + (
+                    f"Çekirdek sürümü uyumsuz (gerekli: {module.requires_core})"
+                    if language == "tr"
+                    else f"Incompatible core version (requires: {module.requires_core})"
+                )
+            )
         # Installed version, with a badge whenever a newer release exists.
         footer = QHBoxLayout()
         version = QLabel(f"v{module.version}")
         version.setObjectName("suiteCardVersion")
         footer.addWidget(version)
+        if not module.compatible:
+            requirement = QLabel(
+                f"Uyumsuz çekirdek: {module.requires_core}"
+                if language == "tr"
+                else f"Incompatible core: {module.requires_core}"
+            )
+            requirement.setObjectName("suiteCardUpdateBadgeIncompatible")
+            requirement.setWordWrap(True)
+            footer.addWidget(requirement)
         if update is not None and update.update_available:
             badge = QLabel(
                 f"Güncelleme: v{update.latest}" if language == "tr"
@@ -94,7 +111,7 @@ class ModuleCard(QFrame):
                 tooltip += "\nSHA-256 checksum required before installation."
             badge.setToolTip(tooltip)
             footer.addWidget(badge)
-            if update.core_ok and update.url and update.sha256:
+            if module.compatible and update.core_ok and update.url and update.sha256:
                 install = QPushButton("Güncelle" if language == "tr" else "Update")
                 install.setObjectName("suiteCardUpdateInstall")
                 install.setToolTip(
@@ -114,11 +131,13 @@ class ModuleCard(QFrame):
         self.launch_button.setAccessibleName(
             f"{name} programını aç" if language == "tr" else f"Open {name}"
         )
+        self.launch_button.setEnabled(module.compatible)
         self.launch_button.clicked.connect(self.activate)
         content.addWidget(self.launch_button, alignment=Qt.AlignRight)
 
     def activate(self):
-        self.activated.emit(self.module.key)
+        if self.module.compatible:
+            self.activated.emit(self.module.key)
 
     def mouseReleaseEvent(self, event: QMouseEvent):
         if event.button() == Qt.LeftButton and self.rect().contains(event.position().toPoint()):
