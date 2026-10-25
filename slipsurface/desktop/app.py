@@ -50,6 +50,7 @@ from slipsurface.desktop.icons import module_icon
 from slipsurface.desktop.profiles import profile
 from slipsurface.desktop.results import ResultsPanel
 from slipsurface.desktop.theme import stylesheet
+from slipsurface.desktop.updater import load_available_updates
 from slipsurface.desktop.widgets import ModuleHeader, section_title
 
 LOG = logging.getLogger(__name__)
@@ -796,8 +797,10 @@ class MainWindow(QMainWindow):
         self._create_actions()
 
         # The launchpad occupies the full window until the user picks a module.
+        # Release catalogues are optional, so this stays quiet when offline.
+        self.available_updates = load_available_updates()
         self.stack = QStackedWidget()
-        self.home = HomePage(language)
+        self.home = HomePage(language, self.available_updates)
         self.home.module_selected.connect(self.open_module)
         self.stack.addWidget(self.home)
 

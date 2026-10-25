@@ -1,0 +1,12 @@
+{
+  "key": "settle",
+  "name": "Settle",
+  "tr": "Oturma",
+  "group": "Foundations",
+  "description": "Immediate and consolidation settlement",
+  "description_tr": "Ani oturma, konsolidasyon ve zamana bağlı oturma.",
+  "version": "1.0.0",
+  "requires_core": ">=0.1.0",
+  "order": 4,
+  "session": "slipsurface.settle.web.session"
+}

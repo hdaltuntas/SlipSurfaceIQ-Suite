@@ -28,7 +28,7 @@ class ModuleCard(QFrame):
 
     activated = Signal(str)
 
-    def __init__(self, module: App, language: str, parent: QWidget | None = None):
+    def __init__(self, module: App, language: str, update=None, parent: QWidget | None = None):
         super().__init__(parent)
         self.module = module
         self.setObjectName("suiteModuleCard")
@@ -74,6 +74,25 @@ class ModuleCard(QFrame):
         summary.setWordWrap(True)
         summary.setMinimumHeight(30)
         content.addWidget(summary)
+
+        # Installed version, with a badge whenever a newer release exists.
+        footer = QHBoxLayout()
+        version = QLabel(f"v{module.version}")
+        version.setObjectName("suiteCardVersion")
+        footer.addWidget(version)
+        if update is not None and update.update_available:
+            badge = QLabel(
+                f"Güncelleme: v{update.latest}" if language == "tr"
+                else f"Update available: v{update.latest}"
+            )
+            badge.setObjectName("suiteCardUpdateBadge")
+            if not update.core_ok:
+                badge.setObjectName("suiteCardUpdateBadgeIncompatible")
+            badge.setToolTip(update.changelog if update.changelog else badge.text())
+            footer.addWidget(badge)
+        footer.addStretch()
+        content.addLayout(footer)
+
         content.addStretch(1)
 
         self.launch_button = QPushButton(
@@ -109,10 +128,13 @@ class HomePage(QWidget):
 
     module_selected = Signal(str)
 
-    def __init__(self, language: str = "tr", parent: QWidget | None = None):
+    def __init__(
+        self, language: str = "tr", updates: dict | None = None, parent: QWidget | None = None
+    ):
         super().__init__(parent)
         self.setObjectName("suiteHomePage")
         self.cards: dict[str, ModuleCard] = {}
+        self.updates = updates or {}
 
         outer = QVBoxLayout(self)
         outer.setContentsMargins(0, 0, 0, 0)
@@ -146,13 +168,25 @@ class HomePage(QWidget):
         subheading.setWordWrap(True)
         layout.addWidget(subheading)
 
+        # One quiet banner when any installed application has a newer release.
+        available = [update for update in self.updates.values() if update.update_available]
+        if available:
+            banner = QLabel(
+                f"{len(available)} uygulamanın yeni sürümü var."
+                if language == "tr"
+                else f"{len(available)} applications have newer versions."
+            )
+            banner.setObjectName("suiteUpdateBanner")
+            banner.setWordWrap(True)
+            layout.addWidget(banner)
+
         grid = QGridLayout()
         grid.setHorizontalSpacing(18)
         grid.setVerticalSpacing(18)
         for column in range(3):
             grid.setColumnStretch(column, 1)
         for index, module in enumerate(APPS):
-            card = ModuleCard(module, language)
+            card = ModuleCard(module, language, update=self.updates.get(module.key))
             card.activated.connect(self.module_selected.emit)
             self.cards[module.key] = card
             grid.addWidget(card, index // 3, index % 3)

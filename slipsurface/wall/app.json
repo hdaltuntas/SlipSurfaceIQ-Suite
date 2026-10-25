@@ -1,0 +1,12 @@
+{
+  "key": "wall",
+  "name": "Wall",
+  "tr": "İstinat Duvarı",
+  "group": "Retaining",
+  "description": "Reinforced concrete retaining walls",
+  "description_tr": "Betonarme istinat duvarlarında stabilite ve tasarım.",
+  "version": "1.0.0",
+  "requires_core": ">=0.1.0",
+  "order": 10,
+  "session": "slipsurface.wall.web.session"
+}
