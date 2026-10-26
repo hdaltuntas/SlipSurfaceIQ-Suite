@@ -12,8 +12,10 @@ import json
 import sys
 from pathlib import Path
 
-from build_module_dist import MODULES, ROOT, build
-from slipsurface.versioning import parse
+ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT))
+from scripts.build_module_dist import MODULES, build  # noqa: E402
+from slipsurface.versioning import parse  # noqa: E402
 
 PUBLISHED = ROOT / "module-updates"
 PUBLIC_ROOT = (
