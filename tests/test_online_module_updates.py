@@ -20,21 +20,21 @@ from slipsurface.desktop.home import HomePage
 
 def test_public_catalogue_maps_rock_to_a_card_update():
     installed = tuple(
-        replace(app, version="2026.0.0") if app.key == "rock" else app
+        replace(app, version="2026.0.1") if app.key == "rock" else app
         for app in catalogue()
     )
     index = {
         "rock": {
-            "version": "2026.0.1",
+            "version": "2026.0.2",
             "changelog": "D range corrected",
             "requires_core": ">=0.1.0",
-            "url": "https://example.com/rock-2026.0.1.zip",
+            "url": "https://example.com/rock-2026.0.2.zip",
             "sha256": "a" * 64,
         },
     }
     updates = updater.check(index, apps=installed)
     assert set(updates) == {"rock"}
-    assert updates["rock"].installed == "2026.0.0"
+    assert updates["rock"].installed == "2026.0.1"
     _ = QApplication.instance() or QApplication([])
     home = HomePage("tr", updates)
     try:
@@ -42,7 +42,7 @@ def test_public_catalogue_maps_rock_to_a_card_update():
         badge = rock.findChild(type(rock.launch_button), "suiteCardUpdateInstall")
         assert isinstance(badge, QPushButton)
         assert "Güncelle" in badge.text()
-        assert "2026.0.1" in next(
+        assert "2026.0.2" in next(
             w.text() for w in rock.findChildren(type(home.brand_title))
             if w.objectName() == "suiteCardUpdateBadge"
         )
@@ -62,7 +62,7 @@ class _Reply(io.BytesIO):
 
 def test_remote_catalogue_fetch_is_https_and_size_bounded(monkeypatch):
     url = updater.PUBLISHED_INDEX
-    records = {"rock": {"version": "2026.0.1"}}
+    records = {"rock": {"version": "2026.0.2"}}
     payload = json.dumps(records).encode("utf-8")
     monkeypatch.setattr(updater.urllib.request, "urlopen",
                         lambda request, timeout: _Reply(payload, url))
@@ -82,7 +82,7 @@ def test_local_override_wins_and_offline_returns_no_updates(tmp_path, monkeypatc
     monkeypatch.setattr(updater, "INDEX_PATHS", (user_index,))
     monkeypatch.setattr(updater, "read_published_index",
                         lambda: {"pile": {"version": "2026.0.2"}})
-    user_index.write_text(json.dumps({"rock": "2026.0.2"}), encoding="utf-8")
+    user_index.write_text(json.dumps({"rock": "2026.0.3"}), encoding="utf-8")
     assert set(updater.load_available_updates(include_remote=True)) == {"rock"}
     user_index.unlink()
     assert set(updater.load_available_updates(include_remote=True)) == {"pile"}
@@ -100,7 +100,7 @@ def test_async_update_result_refreshes_cards_without_leaving_home():
         assert window.check_updates_button.isEnabled()
         installed = next(app for app in catalogue() if app.key == "rock").version
         offer = updater.AppUpdate(
-            key="rock", installed=installed, latest="2026.0.2",
+            key="rock", installed=installed, latest="2026.0.3",
             changelog="New validated Rock version",
             url="https://example.com/rock.zip", sha256="b" * 64,
         )
@@ -125,15 +125,15 @@ def test_publisher_outputs_immutable_module_only_archive_and_sha256(tmp_path, mo
     monkeypatch.setattr(publisher, "PUBLISHED", tmp_path / "updates")
     entries = publisher.publish(["rock"])
     entry = entries["rock"]
-    assert entry["version"] == "2026.0.1"
+    assert entry["version"] == "2026.0.2"
     assert entry["requires_core"] == ">=0.1.0"
-    archive = publisher.PUBLISHED / "rock-2026.0.1.zip"
+    archive = publisher.PUBLISHED / "rock-2026.0.2.zip"
     assert archive.is_file()
     raw = archive.read_bytes()
     assert entry["sha256"] == hashlib.sha256(raw).hexdigest()
     with zipfile.ZipFile(archive) as z:
-        assert "rock-2026.0.1/app.json" in z.namelist()
-        assert "rock-2026.0.1/slipsurface_rock/web/session.py" in z.namelist()
+        assert "rock-2026.0.2/app.json" in z.namelist()
+        assert "rock-2026.0.2/slipsurface_rock/web/session.py" in z.namelist()
     index = json.loads((publisher.PUBLISHED / "index.json").read_text(encoding="utf-8"))
     assert index["rock"] == entry
     assert publisher.publish(["rock"])["rock"]["sha256"] == entry["sha256"]
