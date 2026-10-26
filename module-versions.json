@@ -1,0 +1,9 @@
+{
+  "rock": {
+    "changelog": "Rock Mass 2026.0.2: independent update-card verification; no numerical changes.",
+    "requires_core": ">=0.1.0",
+    "sha256": "152227b1e77c4898feb44a1292156ce3e92edd81a8e0d75b4c6064a1b5cb655d",
+    "url": "https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/rock-2026.0.2.zip",
+    "version": "2026.0.2"
+  }
+}
