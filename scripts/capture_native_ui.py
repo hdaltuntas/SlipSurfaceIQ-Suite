@@ -37,7 +37,7 @@ def capture() -> None:
     if artwork.isNull() or not artwork.save(str(splash_path), "PNG"):
         raise RuntimeError("Could not capture native branded splash artwork")
     print(f"Captured {splash_path}: {artwork.width()} x {artwork.height()}")
-    for theme in ("light", "dark"):
+    for theme in ("dark",):
         window = MainWindow(language="tr", theme=theme)
         window.resize(1500, 920)
         window.show()
