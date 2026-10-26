@@ -18,6 +18,9 @@ from scripts.build_module_dist import MODULES, build  # noqa: E402
 from slipsurface.versioning import parse  # noqa: E402
 
 PUBLISHED = ROOT / "module-updates"
+# Stable human-readable index at the repository root, mirrored in the
+# original path for existing clients.
+ROOT_INDEX = ROOT / "module-versions.json"
 PUBLIC_ROOT = (
     "https://raw.githubusercontent.com/hdaltuntas/"
     "SlipSurfaceIQ-Suite/main/module-updates"
@@ -60,10 +63,9 @@ def publish(keys: list[str]) -> dict:
             "url": f"{PUBLIC_ROOT}/{archive.name}",
             "sha256": digest,
         }
-    index_path.write_text(
-        json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
-        encoding="utf-8",
-    )
+    published_json = json.dumps(index, ensure_ascii=False, indent=2, sort_keys=True) + "\n"
+    index_path.write_text(published_json, encoding="utf-8")
+    ROOT_INDEX.write_text(published_json, encoding="utf-8")
     return index
 
 

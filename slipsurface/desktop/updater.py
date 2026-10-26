@@ -17,9 +17,9 @@ records, e.g.::
         }
     }
 
-The Suite looks for one at ``~/.slipsurface/index.json`` and then
-``./slipsurface-index.json``; if neither exists it starts quietly with no
-updates, because an offline machine is the normal case.
+The Suite reads local catalogues when offline, and fetches the stable root
+``module-versions.json`` from GitHub in a background Qt worker when online.
+The legacy ``module-updates/index.json`` stays published for older clients.
 """
 from __future__ import annotations
 
@@ -45,6 +45,10 @@ INDEX_PATHS = (
 
 # Trusted project-controlled, public repository path; no API token required.
 PUBLISHED_INDEX = (
+    "https://raw.githubusercontent.com/hdaltuntas/"
+    "SlipSurfaceIQ-Suite/main/module-versions.json"
+)
+LEGACY_PUBLISHED_INDEX = (
     "https://raw.githubusercontent.com/hdaltuntas/"
     "SlipSurfaceIQ-Suite/main/module-updates/index.json"
 )
@@ -83,7 +87,10 @@ def read_published_index(url: str = PUBLISHED_INDEX, timeout: float = 5.0) -> di
     if not url.startswith("https://"):
         raise ValueError("release catalogue must use HTTPS")
     request = urllib.request.Request(
-        url, headers={"User-Agent": "SlipSurfaceIQ-Suite-UpdateChecker"}
+        url, headers={
+            "User-Agent": "SlipSurfaceIQ-Suite-UpdateChecker",
+            "Cache-Control": "no-cache",
+        }
     )
     with urllib.request.urlopen(request, timeout=timeout) as response:
         if not response.geturl().startswith("https://"):
