@@ -16,7 +16,8 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QSplashScreen
 
-from slipsurface.desktop.brand import BRAND_DESCRIPTOR, BRAND_NAME, PALETTE, symbol_icon
+from slipsurface.desktop.brand import BRAND_DESCRIPTOR, BRAND_NAME, symbol_icon
+from slipsurface.desktop.theme import COLORS
 
 
 class BrandSplash(QSplashScreen):
@@ -34,14 +35,14 @@ class BrandSplash(QSplashScreen):
         painter = QPainter(canvas)
         painter.setRenderHint(QPainter.Antialiasing)
         background = QLinearGradient(0, 0, width, height)
-        background.setColorAt(0, QColor(PALETTE["midnight"]))
-        background.setColorAt(0.66, QColor("#08101F"))
-        background.setColorAt(1, QColor("#130D2F"))
+        background.setColorAt(0, QColor(COLORS["input"]))
+        background.setColorAt(0.66, QColor(COLORS["sidebar"]))
+        background.setColorAt(1, QColor(COLORS["surface"]))
         painter.fillRect(canvas.rect(), QBrush(background))
 
         for x, y, radius, color in (
-            (170, 220, 260, QColor(0, 221, 245, 45)),
-            (770, 410, 370, QColor(182, 41, 244, 36)),
+            (170, 220, 260, QColor(143, 201, 195, 28)),
+            (770, 410, 370, QColor(155, 203, 216, 22)),
         ):
             bloom = QRadialGradient(QPointF(x, y), radius)
             bloom.setColorAt(0, color)
@@ -49,7 +50,7 @@ class BrandSplash(QSplashScreen):
             painter.fillRect(canvas.rect(), QBrush(bloom))
 
         # Wireframe ground contours: engineering geometry, not decorative dots.
-        painter.setPen(QPen(QColor(35, 140, 255, 80), 1.0))
+        painter.setPen(QPen(QColor(143, 201, 195, 72), 1.0))
         for ridge in range(7):
             points = []
             for x in range(30, 901, 22):
@@ -67,28 +68,28 @@ class BrandSplash(QSplashScreen):
         mark = symbol_icon().pixmap(186, 230)
         painter.drawPixmap(100, 91, mark)
 
-        painter.setPen(QColor("#FFFFFF"))
+        painter.setPen(QColor(COLORS["text"]))
         painter.setFont(QFont("Segoe UI", 37, QFont.Bold))
         painter.drawText(325, 134, 550, 75, Qt.AlignVCenter, BRAND_NAME)
 
-        painter.setPen(QColor("#AAC2E2"))
+        painter.setPen(QColor(COLORS["secondary"]))
         painter.setFont(QFont("Segoe UI", 12, QFont.Medium))
         painter.drawText(330, 210, 530, 34, Qt.AlignVCenter, BRAND_DESCRIPTOR)
 
-        painter.setPen(QColor(PALETTE["cyan"]))
+        painter.setPen(QColor(COLORS["accent"]))
         painter.setFont(QFont("Segoe UI", 12, QFont.DemiBold))
         motto = ("MODELLE  /  ANALİZ ET  /  TASARLA" if language == "tr"
                  else "MODEL  /  ANALYZE  /  DESIGN")
         painter.drawText(330, 265, 530, 32, Qt.AlignVCenter, motto)
 
         line_gradient = QLinearGradient(100, 351, 800, 351)
-        for stop, color in [(0, PALETTE["cyan"]), (0.5, PALETTE["blue"]),
-                            (0.8, PALETTE["iris"]), (1, PALETTE["violet"])]:
+        for stop, color in [(0, COLORS["accent"]), (0.5, "#9BCBD8"),
+                            (0.8, "#BAABD7"), (1, COLORS["border"])]:
             line_gradient.setColorAt(stop, QColor(color))
         painter.setPen(QPen(QBrush(line_gradient), 3.0))
         painter.drawLine(100, 351, 800, 351)
 
-        painter.setPen(QColor("#8CA4C6"))
+        painter.setPen(QColor(COLORS["secondary"]))
         painter.setFont(QFont("Segoe UI", 10))
         footer = ("GEOTEKNİK MÜHENDİSLİĞİ • YEREL MASAÜSTÜ"
                   if language == "tr" else "GEOTECHNICAL ENGINEERING • NATIVE DESKTOP")
