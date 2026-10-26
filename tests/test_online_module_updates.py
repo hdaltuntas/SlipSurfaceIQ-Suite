@@ -148,6 +148,7 @@ def test_publisher_outputs_immutable_module_only_archive_and_sha256(tmp_path, mo
     from scripts import publish_module_updates as publisher
 
     monkeypatch.setattr(publisher, "PUBLISHED", tmp_path / "updates")
+    monkeypatch.setattr(publisher, "ROOT_INDEX", tmp_path / "module-versions.json")
     entries = publisher.publish(["rock"])
     entry = entries["rock"]
     assert entry["version"] == "2026.0.2"
@@ -161,5 +162,18 @@ def test_publisher_outputs_immutable_module_only_archive_and_sha256(tmp_path, mo
         assert "rock-2026.0.2/slipsurface_rock/web/session.py" in z.namelist()
     index = json.loads((publisher.PUBLISHED / "index.json").read_text(encoding="utf-8"))
     assert index["rock"] == entry
+    assert json.loads(publisher.ROOT_INDEX.read_text(encoding="utf-8")) == index
     assert publisher.publish(["rock"])["rock"]["sha256"] == entry["sha256"]
     assert archive.read_bytes() == raw
+
+
+def test_root_manifest_tracks_published_catalogue():
+    """One stable root index mirrors the legacy catalogue at the same commit."""
+    from pathlib import Path
+
+    root = Path(__file__).resolve().parents[1]
+    current = json.loads((root / "module-versions.json").read_text(encoding="utf-8"))
+    legacy = json.loads((root / "module-updates" / "index.json").read_text(encoding="utf-8"))
+    assert current == legacy
+    assert current["rock"]["version"] == "2026.0.2"
+    assert updater.PUBLISHED_INDEX.endswith("/main/module-versions.json")
