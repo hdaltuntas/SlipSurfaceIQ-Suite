@@ -13,8 +13,13 @@ The update checker tries these sources, in order:
 
 1. `~/.slipsurface/index.json` — an optional explicit user override;
 2. `./slipsurface-index.json` — an optional local testing catalogue;
-3. The **public GitHub module catalogue**:
-   `https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/index.json`.
+3. The **public GitHub version file** on `main`:
+   `https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-versions.json`.
+
+GitHub Actions updates `module-versions.json` on every published module
+version bump. It mirrors `module-updates/index.json`, whose original URL
+remains available for older clients. **There is no need to download or
+manually copy a JSON file** in a Suite shell with online checking.
 
 The HTTPS request has a short timeout and a 64 KiB response size limit; it never
 runs on the Qt GUI thread. Offline startup is allowed. Set
@@ -28,9 +33,12 @@ alone.
 **Compatibility:** Older Suite shell versions only search the two local paths.
 To enable fully automatic GitHub checks, existing users must upgrade their
 Suite shell once (by updating the source checkout). After that, independently
-published module updates are discovered and installed via the cards. A new
-Suite source checkout that already bundles Rock v2026.0.1 will correctly show
-`v2026.0.1`, not an upgrade badge for the same version.
+published module updates are discovered and installed via the cards. A new Suite source checkout that already bundles Rock v2026.0.2 correctly
+shows `v2026.0.2`, not an upgrade badge for the same version. To test
+`2026.0.1 → 2026.0.2`, the **installed Rock module** must truly be
+`2026.0.1` and the Suite shell must have the online update checker.
+Adding a new file to GitHub cannot retrofit an older shell that never
+contacts GitHub.
 
 A record names the new release and where its archive lives:
 
@@ -63,9 +71,10 @@ A record names the new release and where its archive lives:
    complete Python/Qt test suite before packaging changed module manifests.
 3. The workflow runs `scripts/publish_module_updates.py` to create
    `module-updates/<key>-<version>.zip`, compute its SHA-256 hash and
-   update `module-updates/index.json`. The workflow commits the public
-   archive/catalogue to `main`. Re-publishing an existing same-version ZIP
-   leaves its bytes unchanged.
+   update both `module-versions.json` (the root version file) and
+   `module-updates/index.json` (legacy alias). The workflow commits the
+   version files and the module archive together to `main`.
+   Re-publishing an existing same-version ZIP leaves its bytes unchanged.
 4. Existing users' Suite launchers fetch the public catalogue asynchronously
    on startup and refresh the module cards. The `Güncelle / Update` button
    installs **only that module**. The Suite executable and other modules
