@@ -142,19 +142,38 @@ def check(index: dict, apps: tuple[App, ...] = None, core: str = CORE_VERSION) -
 
 
 def load_available_updates(include_remote: bool = False) -> dict:
-    """Use an explicit local catalogue first, then optional public releases.
+    """Choose the newest valid release per module from local and public indexes.
 
-    Remote requests are opt-in because the caller must run them on a worker
-    thread. Offline/error cases quietly retain any usable local catalogue.
+    The local-only path is fast and works offline. Public checks run on a Qt
+    worker thread. An older local catalogue must not suppress newer GitHub
+    updates (notably after previous offline trials).
     """
+    local_index = {}
     for path in INDEX_PATHS:
         try:
-            return check(read_index(path))
+            local_index = read_index(path)
+            break
         except (OSError, ValueError, json.JSONDecodeError):
             continue
-    if include_remote:
+    if not include_remote:
+        return check(local_index)
+    try:
+        public_index = read_published_index()
+    except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
+        LOG.info("Remote module catalogue unavailable", exc_info=True)
+        return check(local_index)
+
+    merged = dict(public_index)
+    for key, local_record in local_index.items():
+        local_version = _record_version(local_record)
+        public_version = _record_version(public_index.get(key))
         try:
-            return check(read_published_index())
-        except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
-            LOG.info("Remote module catalogue unavailable", exc_info=True)
-    return {}
+            # Keep local releases for offline/demo tests if equally new or
+            # newer. Ignore older/stale or malformed local records.
+            if local_version and (
+                not public_version or compare(local_version, public_version) >= 0
+            ):
+                merged[key] = local_record
+        except VersionError:
+            continue
+    return check(merged)

@@ -19,7 +19,11 @@ The update checker tries these sources, in order:
 The HTTPS request has a short timeout and a 64 KiB response size limit; it never
 runs on the Qt GUI thread. Offline startup is allowed. Set
 `SLIPSURFACE_DISABLE_UPDATE_CHECK=1` to disable the automatic lookup.
-The explicit local catalogue continues to take precedence for offline tests.
+For a public update check, the newest valid version per module wins across
+local and published catalogues; a local entry wins ties. This prevents a stale
+`slipsurface-index.json` (for example, Rock 2026.0.1) from hiding a newer
+GitHub Rock 2026.0.2 package. Offline checks still use the local catalogue
+alone.
 
 **Compatibility:** Older Suite shell versions only search the two local paths.
 To enable fully automatic GitHub checks, existing users must upgrade their

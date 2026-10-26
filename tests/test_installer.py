@@ -153,11 +153,11 @@ def test_install_rejects_unsafe_archive_paths(tmp_path):
 def test_updater_carries_the_download_url():
     updates = check({
         "pile": {"version": "2026.0.1", "url": "https://example.com/pile-2026.0.1.zip"},
-        "rock": "2026.0.2",  # newer than the installed Rock 2026.0.1
+        "rock": "2026.0.3",  # newer than the installed Rock 2026.0.2
     })
     assert updates["pile"].url == "https://example.com/pile-2026.0.1.zip"
     assert updates["rock"].url == ""
-    assert "rock" not in check({"rock": "2026.0.1"})  # already installed
+    assert "rock" not in check({"rock": "2026.0.2"})  # already installed
     assert AppUpdate("pile", "1.0.0", "1.0.0").update_available is False
 
 
