@@ -5,9 +5,10 @@ retain their separate licenses; do not represent them as AGPL-licensed.
 """
 from __future__ import annotations
 
+import sys
 from dataclasses import dataclass
 from importlib.metadata import PackageNotFoundError, version
-import sys
+
 
 @dataclass(frozen=True)
 class Dependency:
