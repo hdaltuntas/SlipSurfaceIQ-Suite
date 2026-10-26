@@ -1,0 +1,9 @@
+{
+  "rock": {
+    "changelog": "Rock Mass: Hoek–Brown D input range (0–1) corrected.",
+    "requires_core": ">=0.1.0",
+    "sha256": "1e5f37c566c5c5547e690dd32098953699dd1caba0cd83fd92db3d0c6a826e5a",
+    "url": "https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/rock-2026.0.1.zip",
+    "version": "2026.0.1"
+  }
+}
