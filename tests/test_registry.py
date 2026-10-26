@@ -68,8 +68,10 @@ def test_every_manifest_is_complete_and_correctly_versioned():
 def test_apps_catalogue_keeps_the_original_order_and_carries_versions():
     assert keys() == EXPECTED_ORDER
     assert [app.key for app in APPS] == EXPECTED_ORDER
-    assert all(app.version == ("2026.0.2" if app.key == "rock" else "2026.0.0")
-               for app in APPS)
+    assert all(app.version == (
+        "2026.0.2" if app.key == "rock" else
+        "2026.0.1" if app.key == "bearing" else "2026.0.0"
+    ) for app in APPS)
     assert all(app.requires_core == ">=0.1.0" for app in APPS)
 
 
