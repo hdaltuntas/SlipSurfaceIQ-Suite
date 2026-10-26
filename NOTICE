@@ -1,0 +1,12 @@
+SlipSurfaceIQ Suite
+Copyright (c) 2026 Hasan Deniz Altuntaş
+SPDX-License-Identifier: AGPL-3.0-only
+
+Original SlipSurfaceIQ Suite code is licensed under GNU Affero General Public
+License Version 3 only, whose unmodified full text appears in LICENSE.
+
+Source code: https://github.com/hdaltuntas/SlipSurfaceIQ-Suite
+
+Third-party dependencies are independently licensed: see THIRD_PARTY_NOTICES.md.
+The software is supplied without warranty; engineering conclusions require
+independent model, input and result validation.

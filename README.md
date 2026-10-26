@@ -53,4 +53,14 @@ Numerical smoke/regression coverage does not replace independent engineering val
 
 ## License
 
-Proprietary; see LICENSE.
+Copyright © 2026 Hasan Deniz Altuntaş. The SlipSurfaceIQ Suite desktop shell
+and original engineering module sources are licensed under the **GNU Affero
+General Public License, Version 3 only (AGPL-3.0-only)**. See [LICENSE](LICENSE),
+[NOTICE](NOTICE) and [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+Third-party dependencies retain their separate licenses.
+
+The Suite and all bundled modules use version **2026.0.0**. The separate
+`CORE_VERSION` compatibility contract remains at `0.1.0`.
+
+The native desktop **Help / Yardım → About / Hakkında** dialog displays
+the license, author and versions.
