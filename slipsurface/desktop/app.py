@@ -966,6 +966,149 @@ class MainWindow(QMainWindow):
         enabled = self.current_page() is not None
         for action in self.project_actions:
             action.setEnabled(enabled)
+        for button in self.toolbar_actions.values():
+            button.setEnabled(enabled)
+
+    def _update_shell_labels(self):
+        """Re-translate the navigation buttons without changing their actions."""
+        self.back_button.setText(_say(self.language, "⌂  Home", "⌂  Ana Sayfa"))
+        self.back_button.setToolTip(_say(
+            self.language, "Return to all applications", "Tüm programlara dön"
+        ))
+        self.language_button.setText(
+            "EN · English" if self.language == "tr" else "TR · Türkçe"
+        )
+        self.language_button.setToolTip(
+            "Switch to English / İngilizceye geç" if self.language == "tr"
+            else "Switch to Turkish / Türkçeye geç"
+        )
+        captions = {
+            "new": _say(self.language, "New", "Yeni"),
+            "open": _say(self.language, "Open", "Aç"),
+            "save": _say(self.language, "Save", "Kaydet"),
+            "pdf": "PDF",
+        }
+        for key, button in self.toolbar_actions.items():
+            button.setText(captions[key])
+        self._update_theme_button()
+
+    def _update_theme_button(self):
+        self.theme_button.setText(
+            _say(self.language, "☾  Dark", "☾  Koyu")
+            if self.theme == "light" else
+            _say(self.language, "☀  Light", "☀  Açık")
+        )
+        self.theme_button.setToolTip(_say(
+            self.language, "Switch color theme", "Renk temasını değiştir"
+        ))
+
+    def toggle_theme(self, *_):
+        self.set_theme("dark" if self.theme == "light" else "light")
+
+    def toggle_language(self, *_):
+        self.set_language("en" if self.language == "tr" else "tr")
+
+    def set_language(self, language: str) -> bool:
+        """Relocalize Qt editors while retaining inputs, sessions and results."""
+        if language not in {"tr", "en"}:
+            raise ValueError(f"Unsupported language: {language}")
+        if language == self.language:
+            return True
+        if any(page.busy for page in self.pages.values()) or self._update_task is not None:
+            QMessageBox.information(
+                self, _say(self.language, "Task in progress", "İşlem sürüyor"),
+                _say(self.language,
+                     "Finish the analysis or update before changing language.",
+                     "Dili değiştirmeden önce analiz veya güncellemeyi tamamlayın."),
+            )
+            return False
+
+        replacements = {}
+        try:
+            for key, old in self.pages.items():
+                values = old.current_values()
+                page = ModulePage(key, language)
+                replacements[key] = page
+                page.apply_values(copy.deepcopy(values))
+                if old.mode is not None:
+                    page.mode.setCurrentText(old.mode.currentText())
+                page.input_tabs.setCurrentIndex(old.input_tabs.currentIndex())
+                # Keep the original engine session (results, plots and PDF export).
+                page.session = old.session
+                page.data = copy.deepcopy(old.data)
+                page.last_result = old.last_result
+                page._plot_target = old._plot_target
+                page._pending_plot_target = old._pending_plot_target
+                if old.last_result is not None:
+                    if isinstance(old.last_result, dict):
+                        page.overview.dashboard.update_results(old.last_result)
+                    page.result_text.setPlainText(old.result_text.toPlainText())
+                    labels = page.metadata.get("figure_labels", {})
+                    for index in range(old.figure_choice.count()):
+                        figure_key = old.figure_choice.itemData(index)
+                        caption = old.figure_choice.itemText(index)
+                        page.figure_choice.addItem(
+                            str(labels.get(figure_key, caption)), figure_key
+                        )
+                    page.figure_choice.setCurrentIndex(old.figure_choice.currentIndex())
+                    pixmap = old.plot_label.pixmap()
+                    if pixmap is not None and not pixmap.isNull():
+                        page.plot_label.setPixmap(pixmap)
+                if hasattr(page.session, "set_language"):
+                    page.session.set_language(language)
+                if hasattr(page.session, "set_theme"):
+                    page.session.set_theme(self.theme)
+        except Exception as error:
+            for page in replacements.values():
+                page.deleteLater()
+            LOG.exception("Unable to change UI language")
+            QMessageBox.warning(
+                self, _say(self.language, "Language change failed", "Dil değiştirilemedi"),
+                str(error),
+            )
+            return False
+
+        showing_home = self.stack.currentWidget() is self.home
+        active = self.view.currentWidget()
+        active_key = active.key if isinstance(active, ModulePage) else None
+        for key, old in self.pages.items():
+            index = self.view.indexOf(old)
+            if index >= 0:
+                self.view.removeTab(index)
+                name = get(key).tr if language == "tr" else get(key).name
+                self.view.insertTab(index, replacements[key], module_icon(key), name)
+            old.deleteLater()
+        self.pages = replacements
+        self.language = language
+        self._create_actions()
+        self._update_shell_labels()
+        self._build_navigator()
+        self._replace_home()
+        if active_key is not None:
+            page = self.pages.get(active_key)
+            if page is not None:
+                self.view.setCurrentWidget(page)
+                self.navigator.blockSignals(True)
+                for index in range(self.navigator.count()):
+                    if self.navigator.item(index).data(Qt.UserRole) == active_key:
+                        self.navigator.setCurrentRow(index)
+                        break
+                self.navigator.blockSignals(False)
+        if showing_home:
+            self.show_home()
+        else:
+            self.stack.setCurrentWidget(self.workspace)
+            self._sync_actions()
+        return True
+
+    def _replace_home(self):
+        new_home = HomePage(self.language, self.available_updates)
+        new_home.module_selected.connect(self.open_module)
+        new_home.update_requested.connect(self.install_update)
+        self.stack.removeWidget(self.home)
+        self.home.deleteLater()
+        self.stack.insertWidget(0, new_home)
+        self.home = new_home
 
     def _build_navigator(self):
         """(Re)fill the module list from the current catalogue."""
@@ -1176,13 +1319,7 @@ class MainWindow(QMainWindow):
                 self.view.removeTab(index)
             stale.deleteLater()
         self._build_navigator()
-        new_home = HomePage(self.language, self.available_updates)
-        new_home.module_selected.connect(self.open_module)
-        new_home.update_requested.connect(self.install_update)
-        self.stack.removeWidget(self.home)
-        self.home.deleteLater()
-        self.stack.insertWidget(0, new_home)
-        self.home = new_home
+        self._replace_home()
         self.show_home()
 
     def set_theme(self, theme: str):
