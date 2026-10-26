@@ -22,7 +22,10 @@ def test_suite_and_each_module_have_separate_manifest_versions():
     assert CORE_VERSION == "0.1.0"  # ABI separate from product release numbering
     assert len(catalogue()) == 10
     for module in catalogue():
-        assert module.version == ("2026.0.2" if module.key == "rock" else "2026.0.0"), module.key
+        assert module.version == (
+            "2026.0.2" if module.key == "rock" else
+            "2026.0.1" if module.key == "bearing" else "2026.0.0"
+        ), module.key
         package = importlib.import_module(f"slipsurface.{module.key}")
         assert package.__version__ == module.version
         assert module_version(package.__file__) == module.version
