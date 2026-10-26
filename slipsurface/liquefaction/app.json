@@ -5,7 +5,7 @@
   "group": "Foundations",
   "description": "SPT/CPT liquefaction triggering",
   "description_tr": "SPT/CPT verileriyle sıvılaşma ve oturma değerlendirmesi.",
-  "version": "1.0.0",
+  "version": "2026.0.0",
   "requires_core": ">=0.1.0",
   "order": 6,
   "session": "slipsurface.liquefaction.web.session"

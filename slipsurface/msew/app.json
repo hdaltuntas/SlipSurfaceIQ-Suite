@@ -5,7 +5,7 @@
   "group": "Retaining",
   "description": "Mechanically stabilized earth walls",
   "description_tr": "Donatılı zemin duvarlarında iç ve dış stabilite.",
-  "version": "1.0.0",
+  "version": "2026.0.0",
   "requires_core": ">=0.1.0",
   "order": 9,
   "session": "slipsurface.msew.web.session"
