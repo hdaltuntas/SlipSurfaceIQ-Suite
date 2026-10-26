@@ -1,9 +1,9 @@
 {
   "rock": {
-    "changelog": "Rock Mass: Hoek–Brown D input range (0–1) corrected.",
+    "changelog": "Rock Mass 2026.0.2: independent update-card verification; no numerical changes.",
     "requires_core": ">=0.1.0",
-    "sha256": "1e5f37c566c5c5547e690dd32098953699dd1caba0cd83fd92db3d0c6a826e5a",
-    "url": "https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/rock-2026.0.1.zip",
-    "version": "2026.0.1"
+    "sha256": "152227b1e77c4898feb44a1292156ce3e92edd81a8e0d75b4c6064a1b5cb655d",
+    "url": "https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/rock-2026.0.2.zip",
+    "version": "2026.0.2"
   }
 }
