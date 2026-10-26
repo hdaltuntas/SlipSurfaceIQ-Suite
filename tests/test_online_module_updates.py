@@ -87,7 +87,8 @@ def test_local_override_wins_and_offline_returns_no_updates(tmp_path, monkeypatc
     monkeypatch.setattr(updater, "read_published_index",
                         lambda: {"pile": {"version": "2026.0.2"}})
     user_index.write_text(json.dumps({"rock": "2026.0.3"}), encoding="utf-8")
-    assert set(updater.load_available_updates(include_remote=True)) == {"rock"}
+    # Both a local newer release and a different public module are retained.
+    assert set(updater.load_available_updates(include_remote=True)) == {"rock", "pile"}
     user_index.unlink()
     assert set(updater.load_available_updates(include_remote=True)) == {"pile"}
     def offline():
@@ -95,6 +96,26 @@ def test_local_override_wins_and_offline_returns_no_updates(tmp_path, monkeypatc
     monkeypatch.setattr(updater, "read_published_index", offline)
     assert updater.load_available_updates(include_remote=True) == {}
 
+
+
+
+def test_stale_local_index_does_not_hide_a_newer_published_rock(monkeypatch, tmp_path):
+    local = tmp_path / "index.json"
+    local.write_text(json.dumps({"rock": {"version": "2026.0.1"}}), encoding="utf-8")
+    monkeypatch.setattr(updater, "INDEX_PATHS", (local,))
+    published = {
+        "rock": {
+            "version": "2026.0.3",
+            "url": "https://example.com/rock-2026.0.3.zip",
+            "sha256": "1" * 64,
+        },
+    }
+    monkeypatch.setattr(updater, "read_published_index", lambda: published)
+    available = updater.load_available_updates(include_remote=True)
+    assert available["rock"].latest == "2026.0.3"
+    assert available["rock"].url == published["rock"]["url"]
+    # Offline mode respects the local-only catalogue for deterministic use.
+    assert updater.load_available_updates(include_remote=False) == {}
 
 def test_async_update_result_refreshes_cards_without_leaving_home():
     _ = QApplication.instance() or QApplication([])
