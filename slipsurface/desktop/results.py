@@ -10,6 +10,7 @@ from PySide6.QtWidgets import (
     QAbstractItemView,
     QFrame,
     QGridLayout,
+    QHeaderView,
     QLabel,
     QScrollArea,
     QTableWidget,
@@ -51,7 +52,8 @@ class MetricCard(QFrame):
         super().__init__(parent)
         self.setObjectName("suiteResultCard")
         self.setProperty("checkState", str(card.get("state") or "neutral"))
-        self.setMinimumHeight(110)
+        self.setMinimumHeight(108)
+        self.setAccessibleName(_string(card.get("title") or card.get("key") or "Result"))
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 11)
         layout.setSpacing(5)
@@ -172,13 +174,29 @@ class ResultDashboard(QWidget):
             grid.setObjectName("suiteResultTable")
             grid.setHorizontalHeaderLabels(headers)
             grid.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-            grid.setMinimumHeight(min(360, max(140, len(definition["rows"]) * 28 + 52)))
+            grid.setAlternatingRowColors(True)
+            grid.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+            grid.setHorizontalScrollMode(QAbstractItemView.ScrollMode.ScrollPerPixel)
+            grid.setWordWrap(False)
+            horizontal = grid.horizontalHeader()
+            horizontal.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+            horizontal.setStretchLastSection(False)
+            horizontal.setMinimumSectionSize(75)
+            for col_index, heading in enumerate(headers):
+                horizontal.resizeSection(col_index, max(105, min(245, len(heading) * 7 + 36)))
+                item = grid.horizontalHeaderItem(col_index)
+                if item is not None:
+                    item.setToolTip(heading)
+            grid.verticalHeader().setDefaultSectionSize(30)
+            grid.setMinimumHeight(min(360, max(140, len(definition["rows"]) * 30 + 52)))
             for row_index, row in enumerate(definition["rows"]):
                 cells = row.get("cells", []) if isinstance(row, dict) else row
                 if not isinstance(cells, (tuple, list)):
                     continue
                 for col_index, value in enumerate(cells[:len(headers)]):
-                    grid.setItem(row_index, col_index, QTableWidgetItem(_string(value)))
+                    cell = QTableWidgetItem(_string(value))
+                    cell.setToolTip(_string(value))
+                    grid.setItem(row_index, col_index, cell)
             column.addWidget(grid)
             self.tables.append(grid)
             self.body_layout.addWidget(group)
