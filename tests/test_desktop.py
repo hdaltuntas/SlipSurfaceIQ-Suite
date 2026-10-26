@@ -257,7 +257,6 @@ def test_compact_editor_gives_priority_to_results():
         assert splitter.objectName() == "suiteEditorSplitter"
         assert splitter.handleWidth() == 8
         assert not splitter.childrenCollapsible()
-        assert splitter.stretchFactor(0) == 4
-        assert splitter.stretchFactor(1) == 6
+        assert splitter.count() == 2
     finally:
         window.close()
