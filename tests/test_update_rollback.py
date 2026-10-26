@@ -107,7 +107,7 @@ def test_failed_first_user_update_returns_to_bundled_module(tmp_path):
     install(root, retain=True)
     rollback_release("pile", apps_root=root, expected_version="1.1.0")
     assert installed_keys(root) == []
-    assert {item["key"]: item["version"] for item in discover(root)}["pile"] == "1.0.0"
+    assert {item["key"]: item["version"] for item in discover(root)}["pile"] == "2026.0.0"
 
 
 def test_preflight_timeout_never_replaces_working_release(tmp_path, monkeypatch):

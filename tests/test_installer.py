@@ -103,7 +103,7 @@ def test_installed_release_overrides_the_bundled_module(tmp_path):
     assert [m["key"] for m in discover(apps)] == EXPECTED_ORDER  # order preserved
     assert uninstall("pile", apps_root=apps) is True
     manifests = {m["key"]: m for m in discover(apps)}
-    assert manifests["pile"]["version"] == "1.0.0"  # bundled again
+    assert manifests["pile"]["version"] == "2026.0.0"  # bundled again
     assert uninstall("pile", apps_root=apps) is False
 
 
@@ -152,10 +152,10 @@ def test_install_rejects_unsafe_archive_paths(tmp_path):
 
 def test_updater_carries_the_download_url():
     updates = check({
-        "pile": {"version": "1.1.0", "url": "https://example.com/pile-1.1.0.zip"},
+        "pile": {"version": "2026.0.1", "url": "https://example.com/pile-2026.0.1.zip"},
         "rock": "1.1.0",
     })
-    assert updates["pile"].url == "https://example.com/pile-1.1.0.zip"
+    assert updates["pile"].url == "https://example.com/pile-2026.0.1.zip"
     assert updates["rock"].url == ""
     assert AppUpdate("pile", "1.0.0", "1.0.0").update_available is False
 
@@ -291,7 +291,7 @@ def test_release_directory_with_extra_modules_is_ignored(tmp_path):
     live = _installed_dir(root, "pile", "2.0.0")
     (live / "json.py").write_text("raise SystemExit('shadowed')")
     manifests = {m["key"]: m for m in discover(root)}
-    assert manifests["pile"]["version"] == "1.0.0"  # the bundled module
+    assert manifests["pile"]["version"] == "2026.0.0"  # the bundled module
     assert str(live) not in sys.path
 
 
@@ -338,9 +338,9 @@ def test_failed_backup_cleanup_still_reports_success(tmp_path, monkeypatch):
 
 def test_one_malformed_catalogue_record_does_not_hide_the_others():
     updates = check({
-        "pile": {"version": "9.0.0"},
+        "pile": {"version": "2027.0.0"},
         "rock": {"version": "latest"},
-        "wall": {"version": "9.0.0", "requires_core": "~1.0"},
+        "wall": {"version": "2027.0.0", "requires_core": "~1.0"},
     })
     assert set(updates) == {"pile"}
 

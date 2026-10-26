@@ -68,7 +68,7 @@ def test_every_manifest_is_complete_and_correctly_versioned():
 def test_apps_catalogue_keeps_the_original_order_and_carries_versions():
     assert keys() == EXPECTED_ORDER
     assert [app.key for app in APPS] == EXPECTED_ORDER
-    assert all(app.version == "1.0.0" for app in APPS)
+    assert all(app.version == "2026.0.0" for app in APPS)
     assert all(app.requires_core == ">=0.1.0" for app in APPS)
 
 
@@ -95,10 +95,10 @@ def test_updater_reports_only_newer_releases():
     from slipsurface.desktop.updater import AppUpdate, check
 
     updates = check({
-        "pile": {"version": "1.1.0", "changelog": "socket", "requires_core": ">=0.1.0"},
-        "rock": "1.0.0",                       # same version, not an update
-        "wall": "0.9.0",                       # older than installed
-        "msew": {"version": "9.0.0", "requires_core": ">=9.0.0"},
+        "pile": {"version": "2026.0.1", "changelog": "socket", "requires_core": ">=0.1.0"},
+        "rock": "2026.0.0",                       # same version, not an update
+        "wall": "2025.9.0",                       # older than installed
+        "msew": {"version": "2027.0.0", "requires_core": ">=9.0.0"},
     })
     assert set(updates) == {"pile", "msew"}
     assert updates["pile"].update_available and updates["pile"].core_ok

@@ -47,7 +47,7 @@ def test_incompatible_new_plugin_not_launchable(tmp_path):
 def test_incompatible_replacement_keeps_bundled_pile_available(tmp_path):
     folder = _write_release(tmp_path, "pile")
     active = {manifest["key"]: manifest for manifest in discover(tmp_path)}
-    assert active["pile"]["version"] == "1.0.0"
+    assert active["pile"]["version"] == "2026.0.0"
     assert active["pile"]["session"] == "slipsurface.pile.web.session"
     assert incompatible_modules(tmp_path)[0]["key"] == "pile"
     assert str(folder) not in sys.path
