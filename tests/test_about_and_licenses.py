@@ -22,7 +22,7 @@ def test_suite_and_each_module_have_separate_manifest_versions():
     assert CORE_VERSION == "0.1.0"  # ABI separate from product release numbering
     assert len(catalogue()) == 10
     for module in catalogue():
-        assert module.version == "2026.0.0", module.key
+        assert module.version == ("2026.0.1" if module.key == "rock" else "2026.0.0"), module.key
         package = importlib.import_module(f"slipsurface.{module.key}")
         assert package.__version__ == module.version
         assert module_version(package.__file__) == module.version
@@ -54,6 +54,8 @@ def test_native_about_dialog_shows_author_modules_library_credits_in_both_langua
             assert "2026.0.0" in dialog.overview.toPlainText()
             assert "0.1.0" in dialog.overview.toPlainText()
             assert dialog.module_table.item(0, 1).text() == "2026.0.0"
+            rock_index = next(i for i, module in enumerate(catalogue()) if module.key == "rock")
+            assert dialog.module_table.item(rock_index, 1).text() == "2026.0.1"
             assert dialog.library_table.item(0, 0).text() == "Python"
             assert dialog.close_buttons.button(
                 QDialogButtonBox.StandardButton.Close

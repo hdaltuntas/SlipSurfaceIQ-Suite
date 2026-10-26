@@ -5,7 +5,7 @@
   "group": "Rock",
   "description": "Generalized Hoek–Brown strength and modulus",
   "description_tr": "Hoek–Brown dayanımı ve kaya kütlesi deformasyon modülü.",
-  "version": "2026.0.0",
+  "version": "2026.0.1",
   "requires_core": ">=0.1.0",
   "order": 2,
   "session": "slipsurface.rock.web.session"
