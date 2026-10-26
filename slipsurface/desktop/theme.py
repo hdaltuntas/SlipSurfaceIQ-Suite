@@ -253,6 +253,26 @@ QLabel#suiteResultsHeading { color: #173D67; }
 QLabel#suiteMetricValue { color: #174E8B; }
 QFrame#suiteResultCard { background: #FFFFFF; border: 1px solid #D3E0EF;
     border-radius: 10px; }
+
+/* Modern desktop chrome: persistent controls and a balanced editor/results split. */
+QFrame#suiteWorkspaceToolbar { border-radius: 13px; }
+QFrame#suiteWorkspaceToolbar QPushButton { min-height: 28px; border-radius: 8px; }
+QPushButton#suiteHomeBack { font-weight: 700; padding: 6px 14px; }
+QPushButton#suiteThemeSwitch, QPushButton#suiteLanguageSwitch {
+    background: #F0F6FF; color: #1C497B; border: 1px solid #C6D8EF;
+    font-weight: 700; padding: 6px 13px;
+}
+QPushButton#suiteThemeSwitch:hover, QPushButton#suiteLanguageSwitch:hover {
+    background: #DAE9FF; border-color: #7CA9E5;
+}
+QPushButton#suiteDocumentAction { padding: 6px 13px; }
+QPushButton#suiteDocumentAction:disabled { color: #92A2B7; background: #F0F3F8; }
+QTabBar::tab { padding: 9px 14px; margin-right: 2px; }
+QTabBar::tab:hover:!selected { background: #E3EEFC; }
+QSplitter#suiteEditorSplitter::handle:horizontal { background: #D6E3F1; width: 8px; }
+QSplitter#suiteEditorSplitter::handle:horizontal:hover { background: #75B7ED; }
+QGroupBox { font-weight: 650; }
+QDoubleSpinBox, QLineEdit, QComboBox { min-height: 24px; }
 """
 
 _BRAND_DARK = """
@@ -316,6 +336,25 @@ QLabel#suiteResultsHeading { color: #EAF5FF; }
 QLabel#suiteMetricValue { color: #F2FAFF; }
 QFrame#suiteResultCard { background: #182C48; border: 1px solid #3B577B;
     border-radius: 10px; }
+
+/* Matching focus and contrast for night-time engineering sessions. */
+QFrame#suiteWorkspaceToolbar { border-radius: 13px; }
+QFrame#suiteWorkspaceToolbar QPushButton { min-height: 28px; border-radius: 8px; }
+QPushButton#suiteHomeBack { font-weight: 700; padding: 6px 14px; }
+QPushButton#suiteThemeSwitch, QPushButton#suiteLanguageSwitch {
+    background: #233F61; color: #EBF6FF; border: 1px solid #45668C;
+    font-weight: 700; padding: 6px 13px;
+}
+QPushButton#suiteThemeSwitch:hover, QPushButton#suiteLanguageSwitch:hover {
+    background: #31577F; border-color: #73B2EF;
+}
+QPushButton#suiteDocumentAction { padding: 6px 13px; }
+QPushButton#suiteDocumentAction:disabled { color: #7D8FA6; background: #1C2B41; }
+QTabBar::tab { padding: 9px 14px; margin-right: 2px; }
+QSplitter#suiteEditorSplitter::handle:horizontal { background: #274666; width: 8px; }
+QSplitter#suiteEditorSplitter::handle:horizontal:hover { background: #35A9DF; }
+QGroupBox { font-weight: 650; }
+QDoubleSpinBox, QLineEdit, QComboBox { min-height: 24px; }
 """
 
 
