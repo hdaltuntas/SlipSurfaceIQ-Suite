@@ -6,11 +6,27 @@ catalogue format, where to publish it, and how to rehearse the flow locally.
 
 ## The catalogue
 
-A catalogue is a JSON object, one record per module key. Two locations are
-checked at start-up, in order:
+A catalogue is a JSON object, one record per module key. The Suite checks for
+updates **in the background when its native GUI starts**. It also has a
+`Güncellemeleri kontrol et / Check updates` button in the persistent toolbar.
+The update checker tries these sources, in order:
 
-1. `~/.slipsurface/index.json` — the user's catalogue;
-2. `./slipsurface-index.json` — a catalogue next to the working directory.
+1. `~/.slipsurface/index.json` — an optional explicit user override;
+2. `./slipsurface-index.json` — an optional local testing catalogue;
+3. The **public GitHub module catalogue**:
+   `https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/index.json`.
+
+The HTTPS request has a short timeout and a 64 KiB response size limit; it never
+runs on the Qt GUI thread. Offline startup is allowed. Set
+`SLIPSURFACE_DISABLE_UPDATE_CHECK=1` to disable the automatic lookup.
+The explicit local catalogue continues to take precedence for offline tests.
+
+**Compatibility:** Older Suite shell versions only search the two local paths.
+To enable fully automatic GitHub checks, existing users must upgrade their
+Suite shell once (by updating the source checkout). After that, independently
+published module updates are discovered and installed via the cards. A new
+Suite source checkout that already bundles Rock v2026.0.1 will correctly show
+`v2026.0.1`, not an upgrade badge for the same version.
 
 A record names the new release and where its archive lives:
 
@@ -36,14 +52,28 @@ A record names the new release and where its archive lives:
 
 ## Publishing a release
 
-1. Bump the module's `slipsurface/<key>/app.json` `version` and commit it.
-2. Build the archive: `python scripts/build_module_dist.py <key>` writes
-   `dist/<key>-<version>.zip` and prints the catalogue entry to paste.
-3. Host the archive anywhere the user's machine can reach — a GitHub
-   release, a company file server, an object store — and set the record's
-   `url` to its download address.
-4. Publish the catalogue at one of the two lookup locations above. A
-   static JSON file on the same server as the archives is usually enough.
+1. Bump **only the edited module's** `slipsurface/<key>/app.json` version.
+   Suite product version and core API version remain independent.
+2. Merge the tested source changes to `main`. The
+   `.github/workflows/publish-module-updates.yml` workflow validates the
+   complete Python/Qt test suite before packaging changed module manifests.
+3. The workflow runs `scripts/publish_module_updates.py` to create
+   `module-updates/<key>-<version>.zip`, compute its SHA-256 hash and
+   update `module-updates/index.json`. The workflow commits the public
+   archive/catalogue to `main`. Re-publishing an existing same-version ZIP
+   leaves its bytes unchanged.
+4. Existing users' Suite launchers fetch the public catalogue asynchronously
+   on startup and refresh the module cards. The `Güncelle / Update` button
+   installs **only that module**. The Suite executable and other modules
+   remain untouched.
+
+For manual/offline publication use `python scripts/build_module_dist.py rock`
+and place a trusted JSON catalogue in one of the local override paths.
+
+No Windows EXE/installer is created and **no GitHub Release is published**;
+only a separately versioned Python module archive is committed to the project.
+If the publisher workflow fails (or repository write permissions are restricted),
+the catalogue **does not automatically exist** until the failure is fixed.
 
 ## What the user sees
 

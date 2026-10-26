@@ -18,7 +18,7 @@ Options to bypass the home dashboard and open a module immediately:
     python main.py --lang tr --theme light --app bearing
     python main.py --lang en --theme dark --app rock
 
-The desktop launcher uses only Python and main.py. There is no EXE, PyInstaller, Windows installer or web server. Optional **per-module** signed-catalogue ZIP archives are supported for updating an individual Python analysis module (see docs/UPDATE_CATALOGUE.md); these are not desktop installer packages.
+The desktop launcher uses only Python and main.py. There is no EXE, PyInstaller, Windows installer or web server. **Per-module updates appear on the module cards:** the Suite checks its public GitHub catalogue in the background at startup, displays an update badge and a **Güncelle / Update** button for newer releases, and installs only the selected module after verification. Use the toolbar's **Güncellemeleri kontrol et / Check updates** button to refresh manually. Existing installations from before automatic online checks need one Suite source update first. See [the update catalogue and publishing process](docs/UPDATE_CATALOGUE.md). Module-only ZIP archives are not desktop installers or GitHub Releases.
 
 ## Corporate identity
 

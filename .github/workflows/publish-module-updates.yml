@@ -1,0 +1,78 @@
+name: Publish independently versioned module updates
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "slipsurface/*/app.json"
+      - ".github/workflows/publish-module-updates.yml"
+  workflow_dispatch:
+    inputs:
+      module:
+        description: "Module key to publish (e.g. rock)"
+        required: true
+        default: rock
+
+permissions:
+  contents: write
+
+concurrency:
+  group: module-update-publisher
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    name: Test and publish module-only source ZIPs
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    env:
+      QT_QPA_PLATFORM: offscreen
+      MPLBACKEND: Agg
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install Python and Qt source dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y libegl1 libopengl0 libxcb-cursor0
+          python -m pip install -r requirements-dev.txt
+      - name: Validate source and all regressions before publication
+        run: |
+          python -m compileall -q main.py slipsurface tests scripts
+          ruff check main.py slipsurface/apps.py slipsurface/desktop tests
+          python -m pytest -q
+      - name: Find changed module versions
+        id: selection
+        shell: bash
+        env:
+          MODULE_INPUT: ${{ inputs.module }}
+          EVENT_NAME: ${{ github.event_name }}
+        run: |
+          if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            modules="$MODULE_INPUT"
+          else
+            modules="$(git diff --name-only HEAD^ HEAD |
+              awk -F/ '$1 == "slipsurface" && $3 == "app.json" {print $2}' |
+              sort -u | tr '\n' ' ')"
+            # First publication of the workflow ships the already-bumped Rock v2026.0.1.
+            if [[ -z "${modules// /}" ]]; then modules=rock; fi
+          fi
+          echo "modules=$modules" >> "$GITHUB_OUTPUT"
+      - name: Build approved module archives and checksum index
+        shell: bash
+        run: python scripts/publish_module_updates.py ${{ steps.selection.outputs.modules }}
+      - name: Publish immutable archives and public catalogue to main
+        shell: bash
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add module-updates/
+          if ! git diff --cached --quiet; then
+            git commit -m "chore(updates): publish verified module catalogue [skip ci]"
+            git pull --rebase origin main
+            git push origin HEAD:main
+          fi

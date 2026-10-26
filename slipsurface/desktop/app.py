@@ -824,6 +824,7 @@ class MainWindow(QMainWindow):
         self.theme = theme
         self.pages = {}
         self._update_task = None
+        self._catalogue_task = None
         self.setWindowTitle(f"{APP_NAME}  ·  {__version__}")
         self.setWindowIcon(application_icon())
         self.resize(1480, 900)
@@ -865,6 +866,10 @@ class MainWindow(QMainWindow):
         self.back_button.clicked.connect(self.show_home)
         navigation.addWidget(self.back_button)
         navigation.addStretch(1)
+        self.check_updates_button = QPushButton()
+        self.check_updates_button.setObjectName("suiteCheckUpdates")
+        self.check_updates_button.clicked.connect(self.check_for_updates)
+        navigation.addWidget(self.check_updates_button)
 
         # Persistent shortcuts: accessible from the launcher and every module.
         self.theme_button = QPushButton()
@@ -999,6 +1004,14 @@ class MainWindow(QMainWindow):
         }
         for key, button in self.toolbar_actions.items():
             button.setText(captions[key])
+        self.check_updates_button.setText(_say(
+            self.language, "↻  Check updates", "↻  Güncellemeleri kontrol et"
+        ))
+        self.check_updates_button.setToolTip(_say(
+            self.language,
+            "Check new versions of individual modules on GitHub",
+            "GitHub'daki modül güncellemelerini kontrol et",
+        ))
         self._update_theme_button()
 
     def _update_theme_button(self):
@@ -1133,6 +1146,47 @@ class MainWindow(QMainWindow):
             self.navigator.addItem(item)
         self.navigator.blockSignals(False)
         self.navigator.setCurrentRow(-1)
+
+    def check_for_updates(self, *_):
+        """Fetch public module releases off-thread; keep the desktop responsive."""
+        if self._catalogue_task is not None or self._update_task is not None:
+            return
+        self.check_updates_button.setEnabled(False)
+        self.statusBar().showMessage(_say(
+            self.language, "Checking module updates…", "Modül güncellemeleri kontrol ediliyor…"
+        ))
+        self._catalogue_task = AnalysisTask(
+            lambda: load_available_updates(include_remote=True)
+        )
+        self._catalogue_task.signals.finished.connect(self._updates_checked)
+        QThreadPool.globalInstance().start(self._catalogue_task)
+
+    def _updates_checked(self, updates, error):
+        self._catalogue_task = None
+        self.check_updates_button.setEnabled(True)
+        if error is not None:
+            LOG.warning("Module update check failed: %s", error)
+            self.statusBar().showMessage(_say(
+                self.language, "Update check unavailable", "Güncelleme kontrolü yapılamadı"
+            ))
+            return
+        if not isinstance(updates, dict):
+            return
+        # An installation may have completed while the catalogue was fetched.
+        self.available_updates = {
+            key: update for key, update in updates.items()
+            if key in app_catalogue.keys()
+            and app_catalogue.get(key).version == update.installed
+        }
+        was_home = self.stack.currentWidget() is self.home
+        self._replace_home()
+        if was_home:
+            self.show_home()
+        count = len(self.available_updates)
+        self.statusBar().showMessage(_say(
+            self.language, f"{count} module update(s) available",
+            f"{count} modül için güncelleme mevcut",
+        ))
 
     def install_update(self, key: str):
         """Download and install one module release in a background thread."""
@@ -1320,7 +1374,9 @@ class MainWindow(QMainWindow):
         # The release directory was swapped by a rename; finders may still
         # hold the old directory listing.
         importlib.invalidate_caches()
-        self.available_updates = load_available_updates()
+        # Preserve other remote offers; the just-installed version is no
+        # longer newer and must disappear from its launchpad card.
+        self.available_updates.pop(key, None)
         stale = self.pages.pop(key, None)
         if stale is not None:
             index = self.view.indexOf(stale)
@@ -1470,6 +1526,11 @@ def main(argv=None) -> int:
         app.processEvents()
 
     window = MainWindow(args.lang, args.theme, args.app)
+    # Startup checks must not block the Qt GUI thread and are disabled in
+    # headless environments used by CI and native screenshot automation.
+    if (not os.environ.get("SLIPSURFACE_DISABLE_UPDATE_CHECK")
+            and app.platformName().lower() not in {"offscreen", "minimal"}):
+        QTimer.singleShot(0, window.check_for_updates)
     if splash is None:
         window.show()
     else:
