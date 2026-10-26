@@ -156,3 +156,107 @@ def test_standardized_tab_titles():
     assert section_title("equilibrium:wedge", "en") == "Equilibrium · Wedge"
     assert section_title("cpt", "tr") == "CPT Verileri"
     assert section_title("study", "en") == "Study"
+
+
+def test_persistent_navigation_theme_and_live_language_controls():
+    app = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", theme="light")
+    try:
+        # Toolbar remains visible on launcher and module workspaces.
+        assert window.shell_header is not None
+        assert window.back_button.text().endswith("Ana Sayfa")
+        assert window.language_button.text().startswith("EN")
+        assert window.theme_button.text().endswith("Koyu")
+        assert not window.toolbar_actions["save"].isEnabled()
+        window.theme_button.click()
+        assert window.theme == "dark"
+        assert window.theme_button.text().endswith("Açık")
+        assert "#0B1529" in app.styleSheet()
+        window.language_button.click()
+        assert window.language == "en"
+        assert window.back_button.text().endswith("Home")
+        assert window.language_button.text().startswith("TR")
+        assert window.home.cards["bearing"].accessibleName() == "Bearing"
+
+        window.home.cards["bearing"].launch_button.click()
+        assert window.toolbar_actions["save"].isEnabled()
+        assert window.current_page().header.title_label.text() == "Bearing"
+        window.back_button.click()
+        assert window.stack.currentWidget() is window.home
+        assert not window.toolbar_actions["pdf"].isEnabled()
+    finally:
+        window.close()
+
+
+def test_language_switch_retains_open_modules_inputs_and_sessions():
+    _ = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", theme="light", initial_app="bearing")
+    try:
+        bearing = window.current_page()
+        assert bearing is not None
+        # Change one real numeric control, then preserve its full project data.
+        from PySide6.QtWidgets import QDoubleSpinBox
+        spin = next(w for widgets in bearing.fields.values()
+                    for w, _ in widgets if isinstance(w, QDoubleSpinBox))
+        spin.setValue(min(spin.maximum(), spin.value() + 1.0))
+        before_bearing = bearing.current_values()
+        session = bearing.session
+        result = {"headline": "Earlier calculation", "cards": []}
+        bearing.last_result = result
+        bearing.result_text.setPlainText("Previously computed details")
+        bearing.overview.dashboard.update_results(result)
+
+        window.open_module("correlation")
+        correlation = window.current_page()
+        before_correlation = correlation.current_values()
+        window.show_home()
+        assert window.set_language("en")
+        assert window.stack.currentWidget() is window.home
+        assert len(window.pages) == 2
+        assert window.pages["bearing"].current_values() == before_bearing
+        assert window.pages["correlation"].current_values() == before_correlation
+        assert window.pages["bearing"].session is session
+        assert window.pages["bearing"].last_result is result
+        assert window.pages["bearing"].result_text.toPlainText() == (
+            "Previously computed details"
+        )
+        window.open_module("bearing")
+        assert window.current_page().header.title_label.text() == "Bearing"
+        assert window.view.tabText(window.view.currentIndex()) == "Bearing"
+        assert window.set_language("tr")
+        assert window.current_page().header.title_label.text() == "Temel Taşıma Gücü"
+        assert window.current_page().current_values() == before_bearing
+    finally:
+        window.close()
+
+
+def test_language_switch_is_blocked_during_running_analysis(monkeypatch):
+    from PySide6.QtWidgets import QMessageBox
+
+    _ = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", initial_app="bearing")
+    try:
+        original = window.current_page()
+        original.busy = True
+        messages = []
+        monkeypatch.setattr(QMessageBox, "information",
+                            lambda *a, **kw: messages.append(a[-1]))
+        assert not window.set_language("en")
+        assert messages
+        assert window.language == "tr"
+        assert window.current_page() is original
+    finally:
+        window.close()
+
+
+def test_compact_editor_gives_priority_to_results():
+    _ = QApplication.instance() or QApplication([])
+    window = MainWindow(language="tr", initial_app="correlation")
+    try:
+        splitter = window.current_page().work_splitter
+        assert splitter.objectName() == "suiteEditorSplitter"
+        assert splitter.handleWidth() == 8
+        assert not splitter.childrenCollapsible()
+        assert splitter.count() == 2
+    finally:
+        window.close()

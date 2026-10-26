@@ -349,6 +349,10 @@ class ModulePage(QWidget):
         root.addWidget(self.header)
 
         work = QSplitter(Qt.Horizontal)
+        work.setObjectName("suiteEditorSplitter")
+        work.setChildrenCollapsible(False)
+        work.setHandleWidth(8)
+        self.work_splitter = work
         self.input_tabs = QTabWidget()
         self.input_tabs.setDocumentMode(True)
         self._build_input_tabs()
@@ -404,8 +408,11 @@ class ModulePage(QWidget):
         figure_layout.addWidget(scroll)
         right.addTab(plot_panel, "Grafikler" if language == "tr" else "Figures")
         work.addWidget(right)
-        work.setStretchFactor(0, 6)
-        work.setStretchFactor(1, 5)
+        # Let the graph/results pane use more space, while retaining
+        # a user-adjustable divider for the parameter editor.
+        work.setStretchFactor(0, 4)
+        work.setStretchFactor(1, 6)
+        work.setSizes([480, 720])
         root.addWidget(work, 1)
         self._update_visibility()
 
@@ -531,9 +538,16 @@ class ModulePage(QWidget):
         wrapper.setWidgetResizable(True)
         wrapper.setWidget(page)
         column = QVBoxLayout(page)
+        column.setContentsMargins(12, 10, 12, 14)
+        column.setSpacing(12)
         for group in section.get("groups", []):
             group_box = QGroupBox(group.get("title", "Inputs"))
+            # Avoid form controls running across an ultra-wide input canvas.
+            group_box.setMaximumWidth(780)
             form = QFormLayout(group_box)
+            form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            form.setHorizontalSpacing(16)
+            form.setVerticalSpacing(10)
             for field in group.get("fields", []):
                 key = field.get("key")
                 if not key:
@@ -542,6 +556,8 @@ class ModulePage(QWidget):
                 widget = self._field_widget(field, value)
                 label = QLabel(field.get("label", key))
                 label.setWordWrap(True)
+                label.setMinimumWidth(142)
+                label.setMaximumWidth(190)
                 unit = field.get("unit", "")
                 box = QWidget()
                 line = QHBoxLayout(box)
@@ -825,8 +841,8 @@ class MainWindow(QMainWindow):
 
         self.workspace = QWidget()
         workspace_layout = QVBoxLayout(self.workspace)
-        workspace_layout.setContentsMargins(9, 8, 9, 8)
-        workspace_layout.setSpacing(8)
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(0)
         navigation_frame = QFrame()
         navigation_frame.setObjectName("suiteWorkspaceToolbar")
         navigation_frame.setFixedHeight(54)
@@ -844,23 +860,35 @@ class MainWindow(QMainWindow):
         self.toolbar_brand.setObjectName("suiteToolbarBrand")
         navigation.addWidget(self.toolbar_brand)
         navigation.addSpacing(12)
-        self.back_button = QPushButton(
-            "‹  Tüm programlar" if language == "tr" else "‹  All applications"
-        )
+        self.back_button = QPushButton()
         self.back_button.setObjectName("suiteHomeBack")
         self.back_button.clicked.connect(self.show_home)
         navigation.addWidget(self.back_button)
         navigation.addStretch(1)
-        for caption, callback in (
-            ("Yeni" if language == "tr" else "New", self.new_project),
-            ("Aç" if language == "tr" else "Open", self.open_project),
-            ("Kaydet" if language == "tr" else "Save", self.save_project),
-            ("PDF", self.export_pdf),
+
+        # Persistent shortcuts: accessible from the launcher and every module.
+        self.theme_button = QPushButton()
+        self.theme_button.setObjectName("suiteThemeSwitch")
+        self.theme_button.clicked.connect(self.toggle_theme)
+        navigation.addWidget(self.theme_button)
+        self.language_button = QPushButton()
+        self.language_button.setObjectName("suiteLanguageSwitch")
+        self.language_button.clicked.connect(self.toggle_language)
+        navigation.addWidget(self.language_button)
+        navigation.addSpacing(12)
+        self.toolbar_actions = {}
+        for key, caption, callback in (
+            ("new", "Yeni" if language == "tr" else "New", self.new_project),
+            ("open", "Aç" if language == "tr" else "Open", self.open_project),
+            ("save", "Kaydet" if language == "tr" else "Save", self.save_project),
+            ("pdf", "PDF", self.export_pdf),
         ):
             button = QPushButton(caption)
+            button.setObjectName("suiteDocumentAction")
             button.clicked.connect(callback)
             navigation.addWidget(button)
-        workspace_layout.addWidget(navigation_frame)
+            self.toolbar_actions[key] = button
+        self._update_shell_labels()
 
         layout = QSplitter(Qt.Horizontal)
         self.navigator = QListWidget()
@@ -875,7 +903,15 @@ class MainWindow(QMainWindow):
         layout.setStretchFactor(1, 1)
         workspace_layout.addWidget(layout)
         self.stack.addWidget(self.workspace)
-        self.setCentralWidget(self.stack)
+        # A single global toolbar makes Home/Theme/Language reachable on all pages.
+        shell = QWidget()
+        shell_layout = QVBoxLayout(shell)
+        shell_layout.setContentsMargins(9, 8, 9, 8)
+        shell_layout.setSpacing(8)
+        shell_layout.addWidget(navigation_frame)
+        shell_layout.addWidget(self.stack, 1)
+        self.setCentralWidget(shell)
+        self.shell_header = navigation_frame
 
         self.set_theme(theme)
         self.show_home()
@@ -883,6 +919,7 @@ class MainWindow(QMainWindow):
             self.open_module(initial_app)
 
     def _create_actions(self):
+        self.menuBar().clear()
         file_menu = self.menuBar().addMenu("Dosya" if self.language == "tr" else "File")
         actions = [
             ("Yeni" if self.language == "tr" else "New", self.new_project, "Ctrl+N"),
@@ -910,10 +947,13 @@ class MainWindow(QMainWindow):
         theme_action = QAction(
             "Aydınlık / Karanlık" if self.language == "tr" else "Light / Dark", self
         )
-        theme_action.triggered.connect(
-            lambda: self.set_theme("dark" if self.theme == "light" else "light")
-        )
+        theme_action.triggered.connect(self.toggle_theme)
         view_menu.addAction(theme_action)
+        language_action = QAction(
+            "English / Türkçe" if self.language == "tr" else "Türkçe / English", self
+        )
+        language_action.triggered.connect(self.toggle_language)
+        view_menu.addAction(language_action)
 
         help_menu = self.menuBar().addMenu(
             "Yardım" if self.language == "tr" else "Help"
@@ -935,6 +975,149 @@ class MainWindow(QMainWindow):
         enabled = self.current_page() is not None
         for action in self.project_actions:
             action.setEnabled(enabled)
+        for button in self.toolbar_actions.values():
+            button.setEnabled(enabled)
+
+    def _update_shell_labels(self):
+        """Re-translate the navigation buttons without changing their actions."""
+        self.back_button.setText(_say(self.language, "⌂  Home", "⌂  Ana Sayfa"))
+        self.back_button.setToolTip(_say(
+            self.language, "Return to all applications", "Tüm programlara dön"
+        ))
+        self.language_button.setText(
+            "EN · English" if self.language == "tr" else "TR · Türkçe"
+        )
+        self.language_button.setToolTip(
+            "Switch to English / İngilizceye geç" if self.language == "tr"
+            else "Switch to Turkish / Türkçeye geç"
+        )
+        captions = {
+            "new": _say(self.language, "New", "Yeni"),
+            "open": _say(self.language, "Open", "Aç"),
+            "save": _say(self.language, "Save", "Kaydet"),
+            "pdf": "PDF",
+        }
+        for key, button in self.toolbar_actions.items():
+            button.setText(captions[key])
+        self._update_theme_button()
+
+    def _update_theme_button(self):
+        self.theme_button.setText(
+            _say(self.language, "☾  Dark", "☾  Koyu")
+            if self.theme == "light" else
+            _say(self.language, "☀  Light", "☀  Açık")
+        )
+        self.theme_button.setToolTip(_say(
+            self.language, "Switch color theme", "Renk temasını değiştir"
+        ))
+
+    def toggle_theme(self, *_):
+        self.set_theme("dark" if self.theme == "light" else "light")
+
+    def toggle_language(self, *_):
+        self.set_language("en" if self.language == "tr" else "tr")
+
+    def set_language(self, language: str) -> bool:
+        """Relocalize Qt editors while retaining inputs, sessions and results."""
+        if language not in {"tr", "en"}:
+            raise ValueError(f"Unsupported language: {language}")
+        if language == self.language:
+            return True
+        if any(page.busy for page in self.pages.values()) or self._update_task is not None:
+            QMessageBox.information(
+                self, _say(self.language, "Task in progress", "İşlem sürüyor"),
+                _say(self.language,
+                     "Finish the analysis or update before changing language.",
+                     "Dili değiştirmeden önce analiz veya güncellemeyi tamamlayın."),
+            )
+            return False
+
+        replacements = {}
+        try:
+            for key, old in self.pages.items():
+                values = old.current_values()
+                page = ModulePage(key, language)
+                replacements[key] = page
+                page.apply_values(copy.deepcopy(values))
+                if old.mode is not None:
+                    page.mode.setCurrentText(old.mode.currentText())
+                page.input_tabs.setCurrentIndex(old.input_tabs.currentIndex())
+                # Keep the original engine session (results, plots and PDF export).
+                page.session = old.session
+                page.data = copy.deepcopy(old.data)
+                page.last_result = old.last_result
+                page._plot_target = old._plot_target
+                page._pending_plot_target = old._pending_plot_target
+                if old.last_result is not None:
+                    if isinstance(old.last_result, dict):
+                        page.overview.dashboard.update_results(old.last_result)
+                    page.result_text.setPlainText(old.result_text.toPlainText())
+                    labels = page.metadata.get("figure_labels", {})
+                    for index in range(old.figure_choice.count()):
+                        figure_key = old.figure_choice.itemData(index)
+                        caption = old.figure_choice.itemText(index)
+                        page.figure_choice.addItem(
+                            str(labels.get(figure_key, caption)), figure_key
+                        )
+                    page.figure_choice.setCurrentIndex(old.figure_choice.currentIndex())
+                    pixmap = old.plot_label.pixmap()
+                    if pixmap is not None and not pixmap.isNull():
+                        page.plot_label.setPixmap(pixmap)
+                if hasattr(page.session, "set_language"):
+                    page.session.set_language(language)
+                if hasattr(page.session, "set_theme"):
+                    page.session.set_theme(self.theme)
+        except Exception as error:
+            for page in replacements.values():
+                page.deleteLater()
+            LOG.exception("Unable to change UI language")
+            QMessageBox.warning(
+                self, _say(self.language, "Language change failed", "Dil değiştirilemedi"),
+                str(error),
+            )
+            return False
+
+        showing_home = self.stack.currentWidget() is self.home
+        active = self.view.currentWidget()
+        active_key = active.key if isinstance(active, ModulePage) else None
+        for key, old in self.pages.items():
+            index = self.view.indexOf(old)
+            if index >= 0:
+                self.view.removeTab(index)
+                name = get(key).tr if language == "tr" else get(key).name
+                self.view.insertTab(index, replacements[key], module_icon(key), name)
+            old.deleteLater()
+        self.pages = replacements
+        self.language = language
+        self._create_actions()
+        self._update_shell_labels()
+        self._build_navigator()
+        self._replace_home()
+        if active_key is not None:
+            page = self.pages.get(active_key)
+            if page is not None:
+                self.view.setCurrentWidget(page)
+                self.navigator.blockSignals(True)
+                for index in range(self.navigator.count()):
+                    if self.navigator.item(index).data(Qt.UserRole) == active_key:
+                        self.navigator.setCurrentRow(index)
+                        break
+                self.navigator.blockSignals(False)
+        if showing_home:
+            self.show_home()
+        else:
+            self.stack.setCurrentWidget(self.workspace)
+            self._sync_actions()
+        return True
+
+    def _replace_home(self):
+        new_home = HomePage(self.language, self.available_updates)
+        new_home.module_selected.connect(self.open_module)
+        new_home.update_requested.connect(self.install_update)
+        self.stack.removeWidget(self.home)
+        self.home.deleteLater()
+        self.stack.insertWidget(0, new_home)
+        self.home = new_home
 
     def _build_navigator(self):
         """(Re)fill the module list from the current catalogue."""
@@ -1145,18 +1328,13 @@ class MainWindow(QMainWindow):
                 self.view.removeTab(index)
             stale.deleteLater()
         self._build_navigator()
-        new_home = HomePage(self.language, self.available_updates)
-        new_home.module_selected.connect(self.open_module)
-        new_home.update_requested.connect(self.install_update)
-        self.stack.removeWidget(self.home)
-        self.home.deleteLater()
-        self.stack.insertWidget(0, new_home)
-        self.home = new_home
+        self._replace_home()
         self.show_home()
 
     def set_theme(self, theme: str):
         self.theme = "dark" if theme == "dark" else "light"
         QApplication.instance().setStyleSheet(stylesheet(self.theme))
+        self._update_theme_button()
         for page in self.pages.values():
             if hasattr(page.session, "set_theme"):
                 page.session.set_theme(self.theme)
@@ -1197,7 +1375,8 @@ class MainWindow(QMainWindow):
                     f"{key}: {error}")
                 return
             self.pages[key] = page
-            self.view.addTab(page, module_icon(key), get(key).name)
+            name = get(key).tr if self.language == "tr" else get(key).name
+            self.view.addTab(page, module_icon(key), name)
         self.view.setCurrentWidget(self.pages[key])
         self.stack.setCurrentWidget(self.workspace)
         self.statusBar().showMessage(f"Module: {get(key).name}")
