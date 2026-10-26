@@ -24,6 +24,9 @@ updates, because an offline machine is the normal case.
 from __future__ import annotations
 
 import json
+import logging
+import urllib.error
+import urllib.request
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -31,13 +34,22 @@ from slipsurface import CORE_VERSION
 from slipsurface.apps import App, catalogue
 from slipsurface.versioning import VersionError, compare, is_compatible
 
-__all__ = ["AppUpdate", "read_index", "check", "load_available_updates"]
+__all__ = ["AppUpdate", "read_index", "read_published_index", "check",
+           "load_available_updates"]
 
 #: Where a downloaded release catalogue is expected, in lookup order
 INDEX_PATHS = (
     Path.home() / ".slipsurface" / "index.json",
     Path("slipsurface-index.json"),
 )
+
+# Trusted project-controlled, public repository path; no API token required.
+PUBLISHED_INDEX = (
+    "https://raw.githubusercontent.com/hdaltuntas/"
+    "SlipSurfaceIQ-Suite/main/module-updates/index.json"
+)
+MAX_INDEX_BYTES = 64 * 1024
+LOG = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -61,6 +73,25 @@ class AppUpdate:
 def read_index(path) -> dict:
     """Read and minimally validate a release catalogue file."""
     records = json.loads(Path(path).read_text(encoding="utf-8"))
+    if not isinstance(records, dict):
+        raise ValueError("release catalogue must be a JSON object")
+    return records
+
+
+def read_published_index(url: str = PUBLISHED_INDEX, timeout: float = 5.0) -> dict:
+    """Fetch a bounded public catalogue over HTTPS, never Qt's GUI thread."""
+    if not url.startswith("https://"):
+        raise ValueError("release catalogue must use HTTPS")
+    request = urllib.request.Request(
+        url, headers={"User-Agent": "SlipSurfaceIQ-Suite-UpdateChecker"}
+    )
+    with urllib.request.urlopen(request, timeout=timeout) as response:
+        if not response.geturl().startswith("https://"):
+            raise ValueError("release catalogue redirected to insecure URL")
+        data = response.read(MAX_INDEX_BYTES + 1)
+    if len(data) > MAX_INDEX_BYTES:
+        raise ValueError("release catalogue exceeds size limit")
+    records = json.loads(data.decode("utf-8"))
     if not isinstance(records, dict):
         raise ValueError("release catalogue must be a JSON object")
     return records
@@ -110,15 +141,20 @@ def check(index: dict, apps: tuple[App, ...] = None, core: str = CORE_VERSION) -
     return updates
 
 
-def load_available_updates() -> dict:
-    """Updates shown on the launchpad; empty when no catalogue is available.
+def load_available_updates(include_remote: bool = False) -> dict:
+    """Use an explicit local catalogue first, then optional public releases.
 
-    Never raises: a missing, unreadable or malformed catalogue must not
-    stop the Suite from starting.
+    Remote requests are opt-in because the caller must run them on a worker
+    thread. Offline/error cases quietly retain any usable local catalogue.
     """
     for path in INDEX_PATHS:
         try:
             return check(read_index(path))
         except (OSError, ValueError, json.JSONDecodeError):
             continue
+    if include_remote:
+        try:
+            return check(read_published_index())
+        except (OSError, ValueError, UnicodeDecodeError, urllib.error.URLError):
+            LOG.info("Remote module catalogue unavailable", exc_info=True)
     return {}
