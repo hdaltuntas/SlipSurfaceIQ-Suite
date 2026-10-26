@@ -319,5 +319,31 @@ QFrame#suiteResultCard { background: #182C48; border: 1px solid #3B577B;
 """
 
 
+_ABOUT_LIGHT = """
+
+/* Copyright & About dialog: high-contrast cards in both brand themes. */
+QFrame#suiteAboutHero { background: #0B1529; border: 1px solid #3764A6;
+    border-radius: 12px; }
+QFrame#suiteAboutHero QLabel { background: transparent; border: none; }
+QLabel#suiteAboutTitle { color: #FFFFFF; font-size: 21px; font-weight: 750; }
+QLabel#suiteAboutDescriptor { color: #8BB3EF; font-size: 11px; }
+QLabel#suiteAboutEdition { color: #00DDF5; font-size: 12px; }
+QTableWidget { alternate-background-color: #EAF2FC; }
+
+"""
+
+_ABOUT_DARK = """
+
+QFrame#suiteAboutHero { background: #0B1529; border: 1px solid #38588D;
+    border-radius: 12px; }
+QFrame#suiteAboutHero QLabel { background: transparent; border: none; }
+QLabel#suiteAboutTitle { color: #FFFFFF; font-size: 21px; font-weight: 750; }
+QLabel#suiteAboutDescriptor { color: #8BB3EF; font-size: 11px; }
+QLabel#suiteAboutEdition { color: #00DDF5; font-size: 12px; }
+QTableWidget { alternate-background-color: #243851; }
+
+"""
+
+
 def stylesheet(theme: str) -> str:
-    return (DARK + _BRAND_DARK) if theme == "dark" else (LIGHT + _BRAND_LIGHT)
+    return (DARK + _BRAND_DARK + _ABOUT_DARK) if theme == "dark" else (LIGHT + _BRAND_LIGHT + _ABOUT_LIGHT)

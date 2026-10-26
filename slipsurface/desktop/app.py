@@ -49,6 +49,7 @@ from slipsurface import APP_NAME, __version__
 from slipsurface import apps as app_catalogue
 from slipsurface.apps import forms_path, get, session_path
 from slipsurface.contract import satisfies_contract
+from slipsurface.desktop.about import AboutDialog
 from slipsurface.desktop.brand import application_icon, symbol_icon
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.icons import module_icon
@@ -913,6 +914,22 @@ class MainWindow(QMainWindow):
             lambda: self.set_theme("dark" if self.theme == "light" else "light")
         )
         view_menu.addAction(theme_action)
+
+        help_menu = self.menuBar().addMenu(
+            "Yardım" if self.language == "tr" else "Help"
+        )
+        self.about_action = QAction(
+            "SlipSurfaceIQ Hakkında" if self.language == "tr"
+            else "About SlipSurfaceIQ", self
+        )
+        self.about_action.setObjectName("suiteAboutAction")
+        self.about_action.triggered.connect(self.show_about)
+        help_menu.addAction(self.about_action)
+
+    def show_about(self):
+        """Display licensing and dependency credits in a native dialog."""
+        dialog = AboutDialog(self.language, self)
+        dialog.exec()
 
     def _sync_actions(self):
         enabled = self.current_page() is not None
