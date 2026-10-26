@@ -40,7 +40,9 @@ Package layout
 Run it:  slipsurface-correlation            (or  python -m slipsurface.correlation)
 """
 
-from .. import __version__ as __version__  # one version for the whole suite
+from slipsurface.versioning import module_version
+
+__version__ = module_version(__file__)
 
 APP_NAME = "SlipSurface IQ Correlation"
 ORG = "SlipSurface IQ"

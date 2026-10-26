@@ -43,7 +43,7 @@ Every application carries an `app.json` next to its code:
     "group": "Foundations",
     "description": "Axial capacity, group and socket assessment",
     "description_tr": "Kazıkların eksenel kapasitesi, grup etkisi ve soket analizi.",
-    "version": "1.0.0",
+    "version": "2026.0.0",
     "requires_core": ">=0.1.0",
     "order": 7,
     "session": "slipsurface.pile.web.session"
@@ -249,3 +249,13 @@ offscreen Qt tests; no Windows executable or distribution installer is built.
 Note that Python plug-in releases still execute code with the current user's
 permissions; use a trusted release catalogue. SHA-256 is an integrity check,
 not publisher authentication.
+
+## Product versions from 2026 onwards
+
+The Suite and each shipped application start from **2026.0.0**. Subsequent
+patch/minor releases are **per module**; updating Pile never increments the
+Bearing version. Module packages use `module_version(__file__)` to read the
+bundled `app.json` or, for a relocated user release, its parent manifest.
+The launcher reads `slipsurface.__version__`. **CORE_VERSION remains 0.1.0**
+as the separately maintained plugin ABI constraint; `requires_core` must
+not be confused with the calendar-year product version.

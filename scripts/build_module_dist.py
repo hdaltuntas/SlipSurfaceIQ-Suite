@@ -69,17 +69,19 @@ def build(key: str, out_dir: Path, version: str | None = None) -> Path:
                 continue
             archived_path = f"{top}/slipsurface_{key}/" + relative.as_posix()
             if relative == Path("__init__.py"):
-                # A stand-alone top-level package cannot import a parent via
-                # "from .. import __version__"; use this module's release
-                # version, independent from the Suite's core version.
+                # Release and bundled packages derive their own version from
+                # app.json; this file works under both package namespaces.
                 source_code = path.read_text(encoding="utf-8")
-                old_version = "from .. import __version__ as __version__"
-                if old_version not in source_code:
+                old_alias = "from .. import __version__ as __version__"
+                if old_alias in source_code:
+                    source_code = source_code.replace(
+                        old_alias,
+                        "from slipsurface.versioning import module_version\n"
+                        "__version__ = module_version(__file__)", 1,
+                    )
+                if "module_version(__file__)" not in source_code:
                     raise ValueError(f"Unsupported package initializer: {path}")
-                rewritten = source_code.replace(
-                    old_version, f'__version__ = "{version}"', 1
-                )
-                archive.writestr(archived_path, rewritten)
+                archive.writestr(archived_path, source_code)
             else:
                 archive.write(path, archived_path)
     return archive_path

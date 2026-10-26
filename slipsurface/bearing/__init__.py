@@ -53,7 +53,9 @@ Package layout
 Run it:  slipsurface-bearing          (or  python -m slipsurface.bearing)
 """
 
-from .. import __version__ as __version__  # one version for the whole suite
+from slipsurface.versioning import module_version
+
+__version__ = module_version(__file__)
 
 APP_NAME = "SlipSurface IQ Bearing"
 ORG = "SlipSurface IQ"

@@ -52,7 +52,9 @@ Package layout
 Run it:  slipsurface-pile          (or  python -m slipsurface.pile)
 """
 
-from .. import __version__ as __version__  # one version for the whole suite
+from slipsurface.versioning import module_version
+
+__version__ = module_version(__file__)
 
 APP_NAME = "SlipSurface IQ Pile"
 ORG = "SlipSurface IQ"

@@ -37,7 +37,9 @@ Package layout
 Run it:  slipsurface-spwa            (or  python -m slipsurface.spwa)
 """
 
-from .. import __version__ as __version__  # one version for the whole suite
+from slipsurface.versioning import module_version
+
+__version__ = module_version(__file__)
 
 APP_NAME = "SlipSurface IQ Pile Wall Analysis"
 ORG = "SlipSurface IQ"

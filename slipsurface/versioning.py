@@ -12,9 +12,11 @@ dependencies — is imported.
 """
 from __future__ import annotations
 
+import json
 import re
+from pathlib import Path
 
-__all__ = ["parse", "compare", "is_compatible", "VersionError"]
+__all__ = ["parse", "compare", "is_compatible", "module_version", "VersionError"]
 
 #: A release number: v-prefixed or not, optionally with a pre-release or a
 #: build suffix (which this simplified comparison ignores, as the Suite only
@@ -77,3 +79,22 @@ def is_compatible(core_version: str, spec: str) -> bool:
         if not _OPS[operator](version, parse(target)):
             return False
     return True
+
+
+def module_version(package_file: str) -> str:
+    """Return a module's own version from its bundled or relocated manifest.
+
+    In the Suite the manifest is adjacent to the package initializer; for
+    independent modules it sits in the package's parent directory. This
+    intentionally differs from the Suite version and CORE_VERSION.
+    """
+    directory = Path(package_file).resolve().parent
+    for manifest in (directory / "app.json", directory.parent / "app.json"):
+        if manifest.is_file():
+            try:
+                version = json.loads(manifest.read_text(encoding="utf-8"))["version"]
+            except (OSError, ValueError, KeyError, TypeError) as error:
+                raise VersionError(f"invalid module manifest: {manifest}") from error
+            parse(version)
+            return version
+    raise VersionError(f"module manifest not found: {directory}")
