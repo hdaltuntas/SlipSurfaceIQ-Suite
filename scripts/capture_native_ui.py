@@ -31,13 +31,19 @@ def _capture(window: MainWindow, folder: Path, name: str, app: QApplication) -> 
 def capture() -> None:
     output = Path(__file__).resolve().parents[1] / "docs" / "screenshots"
     output.mkdir(parents=True, exist_ok=True)
+    # The obsolete light-theme renders are generated artifacts, not an
+    # available UI mode. Retain their history in Git, but not in current docs.
+    for old in list(output.glob("native-pyside6-*-light.png")) + list(
+        (output / "modules").glob("*-light.png")
+    ):
+        old.unlink()
     app = QApplication.instance() or QApplication([])
     artwork = BrandSplash.render_artwork("tr")
     splash_path = output / "brand-splash.png"
     if artwork.isNull() or not artwork.save(str(splash_path), "PNG"):
         raise RuntimeError("Could not capture native branded splash artwork")
     print(f"Captured {splash_path}: {artwork.width()} x {artwork.height()}")
-    for theme in ("light", "dark"):
+    for theme in ("dark",):
         window = MainWindow(language="tr", theme=theme)
         window.resize(1500, 920)
         window.show()

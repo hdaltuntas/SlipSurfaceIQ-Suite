@@ -11,12 +11,15 @@ Requirements: Python 3.10+.
 
 On launch, the application displays a **home dashboard** with ten cards, each containing a module name and a short description. Select a card to enter its engineering interface. Use **Tüm programlar / All applications** to return to the dashboard; existing module inputs remain available.
 
-[Actual light theme dashboard](docs/screenshots/native-pyside6-home-light.png) · [Actual dark theme dashboard](docs/screenshots/native-pyside6-home-dark.png)
+[Nordic Dark home dashboard](docs/screenshots/native-pyside6-home-dark.png)
 
 Options to bypass the home dashboard and open a module immediately:
 
-    python main.py --lang tr --theme light --app bearing
-    python main.py --lang en --theme dark --app rock
+    python main.py --lang tr --app bearing
+    python main.py --lang en --app rock
+
+The Suite now uses **Nordic Dark only**; no light-mode toggle is available.
+The optional legacy CLI argument `--theme dark` is still accepted.
 
 The desktop launcher uses only Python and main.py. There is no EXE, PyInstaller, Windows installer or web server. **Per-module updates appear on the module cards:** the Suite checks its public GitHub catalogue in the background at startup, displays an update badge and a **Güncelle / Update** button for newer releases, and installs only the selected module after verification. Use the toolbar's **Güncellemeleri kontrol et / Check updates** button to refresh manually. Existing installations from before automatic online checks need one Suite source update first. Version checks use the stable [module-versions.json](module-versions.json) file
 on the GitHub `main` branch, updated automatically with each module release.
@@ -26,8 +29,8 @@ Module-only ZIP archives are not desktop installers or GitHub Releases.
 ## Corporate identity
 
 The original neon S mark is integrated into the native PySide6 window icon,
-short startup splash, dashboard, module headers and contrast-conscious light/dark
-themes. See [Brand integration](docs/BRAND_INTEGRATION.md).
+short startup splash, dashboard and module headers with a single Nordic Dark
+design system. See [Brand integration](docs/BRAND_INTEGRATION.md).
 
 Use `python main.py --no-splash` to skip the splash. The existing `--app`
 direct launch still works. No EXE, installer or web server is required.
@@ -37,13 +40,15 @@ direct launch still works. No EXE, installer or web server is required.
 The home screen and all ten module workspaces use the same icon-led PySide6
 visual language: [desktop design system](docs/UI_DESIGN_SYSTEM.md). Module
 icons are scalable SVG files and appear on home cards, module tabs, sidebars
-and module headers. Both light and dark themes are supported.
+and module headers. All native windows and forms use Nordic Dark; the theme
+button has been removed while the Turkish/English language switch and module
+update cards remain available.
 
 Current native screenshots:
-[launchpad — light](docs/screenshots/native-pyside6-home-light.png) ·
-[module — light](docs/screenshots/native-pyside6-bearing-light.png) ·
-[launchpad — dark](docs/screenshots/native-pyside6-home-dark.png) ·
-[module — dark](docs/screenshots/native-pyside6-bearing-dark.png).
+[launchpad — Nordic Dark](docs/screenshots/native-pyside6-home-dark.png) ·
+[module — Nordic Dark](docs/screenshots/native-pyside6-bearing-dark.png).
+Visual design tokens and acceptance criteria are in
+[Dark UI Spec v1](docs/DARK_UI_SPEC_V1.md).
 
 ## Tests
 

@@ -9,7 +9,7 @@ LE is deliberately excluded. The sole startup command remains `python main.py`.
 
 ## Shared components
 
-- `slipsurface/desktop/theme.py`: common contrast-tested light/dark QSS styles.
+- `slipsurface/desktop/theme.py`: the single contrast-tested Nordic Dark QSS.
   It styles menus, controls, cards, tabs, group boxes, navigator and module toolbars.
 - `slipsurface/desktop/widgets.py`: reusable `ModuleHeader` displaying program
   SVG, category, localized program title and concise description, followed by
@@ -27,17 +27,16 @@ LE is deliberately excluded. The sole startup command remains `python main.py`.
 
 A desktop-ready hierarchy: navigation toolbar (Home / New / Open / Save / PDF),
 then module identity and Analyze action, followed by editable input groups on
-the left and result/plot tabs on the right. Muted pale-blue backgrounds for light
-mode; high-contrast dark blue surfaces for dark mode. Buttons have explicit hover,
-keyboard focus and disabled states. Engineering charts are produced by the
-existing Matplotlib engines, not replaced by decorative graphics.
+the left and result/plot tabs on the right. Nordic Dark uses layered slate
+surfaces and mint accents, with explicit hover, keyboard focus and disabled
+states. Engineering charts are produced by the existing Matplotlib engines,
+not replaced by decorative graphics.
 
 ## Persistent application shell (2026)
 
-The native **Home / Ana Sayfa**, **Theme / Tema**, and **Language / Dil**
-buttons now stay visible on the same header across the launcher and every
-engineering module. Theme switches between the existing light and dark QSS
-without resetting forms. Language switches between Turkish and English and
+The native **Home / Ana Sayfa** and **Language / Dil** buttons remain
+visible on the shared header across the launcher and engineering modules.
+There is no theme button; Nordic Dark is fixed. Language switches between Turkish and English and
 relocalizes the launcher, module headers, form schemas, menus and navigation.
 
 Language switching rebuilds the Qt form widgets while retaining the existing
@@ -115,13 +114,13 @@ result summary for every listed module. Engine calculations are unchanged.
 All ten screens share:
 
 - validated SVG module icons and navigation;
-- dark/light contrast and keyboard-accessible controls;
+- Nordic Dark contrast and keyboard-accessible controls;
 - input groups, select-type table columns and row management;
 - summary KPIs, warnings, read-only result tables and original plots;
 - a document/action toolbar, status bar and Home navigation.
 
 Generated screenshots from the running Qt application are stored in
-`docs/screenshots/modules/{module}-{theme}.png`. The screenshots document
+`docs/screenshots/modules/{module}-dark.png`. The screenshots document
 the **uncomputed default input state**, not validated engineering designs.
 
 ## Engineering QA boundaries
@@ -130,3 +129,10 @@ The GUI migration does not certify each solver for new design scenarios.
 Original numerical regressions remain included, and numerical validation
 against external references is tracked separately. The Suite remains Python-only:
 `python main.py`. No installers, executables or Releases are created.
+
+## Nordic Dark single-theme migration
+
+The prior light/dark application chrome is replaced by one shared Nordic Dark
+QSS. See [Dark UI Spec v1](DARK_UI_SPEC_V1.md) for exact tokens, accessible
+focus/contrast rules, CAD and plot considerations, and staged acceptance.
+Report/PDF paper figures are independent of on-screen application chrome.

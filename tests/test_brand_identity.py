@@ -67,8 +67,11 @@ def test_brand_home_toolbar_and_all_module_headers_share_symbol():
         assert not window.toolbar_brand_mark.pixmap().isNull()
         for theme in ("light", "dark"):
             window.set_theme(theme)
+            assert window.theme == "dark"
             css = app.styleSheet()
-            assert "#0B1529" in css
+            assert "#2B303B" in css
+            assert "#8FC9C3" in css
+            assert not hasattr(window, "theme_button")
             assert PALETTE["cyan"] == "#00DDF5"
             assert PALETTE["iris"] == "#6B4CFF"
             assert "suiteBrandHero" in css

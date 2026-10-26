@@ -818,10 +818,11 @@ class ModulePage(QWidget):
 
 
 class MainWindow(QMainWindow):
-    def __init__(self, language="tr", theme="light", initial_app=None):
+    def __init__(self, language="tr", theme="dark", initial_app=None):
         super().__init__()
         self.language = language
-        self.theme = theme
+        # The single Nordic Dark theme replaces both legacy display modes.
+        self.theme = "dark"
         self.pages = {}
         self._update_task = None
         self._catalogue_task = None
@@ -871,11 +872,7 @@ class MainWindow(QMainWindow):
         self.check_updates_button.clicked.connect(self.check_for_updates)
         navigation.addWidget(self.check_updates_button)
 
-        # Persistent shortcuts: accessible from the launcher and every module.
-        self.theme_button = QPushButton()
-        self.theme_button.setObjectName("suiteThemeSwitch")
-        self.theme_button.clicked.connect(self.toggle_theme)
-        navigation.addWidget(self.theme_button)
+        # Language remains configurable; color theme is deliberately fixed.
         self.language_button = QPushButton()
         self.language_button.setObjectName("suiteLanguageSwitch")
         self.language_button.clicked.connect(self.toggle_language)
@@ -908,7 +905,7 @@ class MainWindow(QMainWindow):
         layout.setStretchFactor(1, 1)
         workspace_layout.addWidget(layout)
         self.stack.addWidget(self.workspace)
-        # A single global toolbar makes Home/Theme/Language reachable on all pages.
+        # A single global toolbar keeps Home/Language reachable on all pages.
         shell = QWidget()
         shell_layout = QVBoxLayout(shell)
         shell_layout.setContentsMargins(9, 8, 9, 8)
@@ -918,7 +915,7 @@ class MainWindow(QMainWindow):
         self.setCentralWidget(shell)
         self.shell_header = navigation_frame
 
-        self.set_theme(theme)
+        self.set_theme("dark")
         self.show_home()
         if initial_app is not None:
             self.open_module(initial_app)
@@ -949,11 +946,6 @@ class MainWindow(QMainWindow):
         home_action.setShortcut("Alt+Home")
         home_action.triggered.connect(self.show_home)
         view_menu.addAction(home_action)
-        theme_action = QAction(
-            "Aydınlık / Karanlık" if self.language == "tr" else "Light / Dark", self
-        )
-        theme_action.triggered.connect(self.toggle_theme)
-        view_menu.addAction(theme_action)
         language_action = QAction(
             "English / Türkçe" if self.language == "tr" else "Türkçe / English", self
         )
@@ -1012,21 +1004,6 @@ class MainWindow(QMainWindow):
             "Check new versions of individual modules on GitHub",
             "GitHub'daki modül güncellemelerini kontrol et",
         ))
-        self._update_theme_button()
-
-    def _update_theme_button(self):
-        self.theme_button.setText(
-            _say(self.language, "☾  Dark", "☾  Koyu")
-            if self.theme == "light" else
-            _say(self.language, "☀  Light", "☀  Açık")
-        )
-        self.theme_button.setToolTip(_say(
-            self.language, "Switch color theme", "Renk temasını değiştir"
-        ))
-
-    def toggle_theme(self, *_):
-        self.set_theme("dark" if self.theme == "light" else "light")
-
     def toggle_language(self, *_):
         self.set_language("en" if self.language == "tr" else "tr")
 
@@ -1387,10 +1364,10 @@ class MainWindow(QMainWindow):
         self._replace_home()
         self.show_home()
 
-    def set_theme(self, theme: str):
-        self.theme = "dark" if theme == "dark" else "light"
-        QApplication.instance().setStyleSheet(stylesheet(self.theme))
-        self._update_theme_button()
+    def set_theme(self, theme: str = "dark"):
+        """Compatibility API: always use Nordic Dark, including legacy 'light' callers."""
+        self.theme = "dark"
+        QApplication.instance().setStyleSheet(stylesheet())
         for page in self.pages.values():
             if hasattr(page.session, "set_theme"):
                 page.session.set_theme(self.theme)
@@ -1502,7 +1479,8 @@ class MainWindow(QMainWindow):
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description="SlipSurfaceIQ Suite native PySide6 desktop")
     parser.add_argument("--lang", choices=("tr", "en"), default="tr")
-    parser.add_argument("--theme", choices=("light", "dark"), default="light")
+    parser.add_argument("--theme", choices=("dark",), default="dark",
+                        help="Nordic Dark is the only supported application theme")
     parser.add_argument("--app", choices=app_catalogue.keys(), default=None,
                         help="Open a module directly instead of the home dashboard")
     parser.add_argument(
@@ -1525,7 +1503,7 @@ def main(argv=None) -> int:
         splash.show()
         app.processEvents()
 
-    window = MainWindow(args.lang, args.theme, args.app)
+    window = MainWindow(args.lang, "dark", args.app)
     # Startup checks must not block the Qt GUI thread and are disabled in
     # headless environments used by CI and native screenshot automation.
     if (not os.environ.get("SLIPSURFACE_DISABLE_UPDATE_CHECK")

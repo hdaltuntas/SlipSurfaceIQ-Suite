@@ -113,7 +113,7 @@ def test_each_module_opens_in_native_qt():
     assert app is not None
 
 
-def test_vector_icon_library_covers_each_module_and_both_themes():
+def test_vector_icon_library_and_nordic_dark_stylesheet():
     for module in APPS:
         path = ICON_DIR / f"{module.key}.svg"
         svg = path.read_text(encoding="utf-8")
@@ -121,10 +121,12 @@ def test_vector_icon_library_covers_each_module_and_both_themes():
         assert "<svg" in svg
         icon = module_icon(module.key)
         assert not icon.pixmap(48, 48).isNull()
-    assert "suiteModuleHeader" in stylesheet("light")
-    assert "suiteModuleHeader" in stylesheet("dark")
-    assert "suiteCardIcon" in stylesheet("light")
-    assert "suiteCardIcon" in stylesheet("dark")
+    css = stylesheet()
+    assert "suiteModuleHeader" in css
+    assert "suiteCardIcon" in css
+    assert "#2B303B" in css
+    assert "#8FC9C3" in css
+    assert stylesheet("light") == css  # legacy callers cannot reactivate light mode
 
 
 def test_shared_module_headers_are_consistent_and_accessible():
@@ -158,7 +160,7 @@ def test_standardized_tab_titles():
     assert section_title("study", "en") == "Study"
 
 
-def test_persistent_navigation_theme_and_live_language_controls():
+def test_persistent_nordic_dark_navigation_and_live_language_controls():
     app = QApplication.instance() or QApplication([])
     window = MainWindow(language="tr", theme="light")
     try:
@@ -166,12 +168,19 @@ def test_persistent_navigation_theme_and_live_language_controls():
         assert window.shell_header is not None
         assert window.back_button.text().endswith("Ana Sayfa")
         assert window.language_button.text().startswith("EN")
-        assert window.theme_button.text().endswith("Koyu")
-        assert not window.toolbar_actions["save"].isEnabled()
-        window.theme_button.click()
+        assert not hasattr(window, "theme_button")
         assert window.theme == "dark"
-        assert window.theme_button.text().endswith("Açık")
-        assert "#0B1529" in app.styleSheet()
+        assert not window.toolbar_actions["save"].isEnabled()
+        window.set_theme("light")  # historical callers are safely mapped to dark
+        assert window.theme == "dark"
+        assert "#2B303B" in app.styleSheet()
+        assert "#8FC9C3" in app.styleSheet()
+        assert not any(
+            "Karanlık" in action.text() or "Aydınlık" in action.text()
+            for menu in window.menuBar().actions()
+            for action in menu.menu().actions()
+            if menu.menu() is not None
+        )
         window.language_button.click()
         assert window.language == "en"
         assert window.back_button.text().endswith("Home")
