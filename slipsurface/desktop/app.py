@@ -538,9 +538,16 @@ class ModulePage(QWidget):
         wrapper.setWidgetResizable(True)
         wrapper.setWidget(page)
         column = QVBoxLayout(page)
+        column.setContentsMargins(12, 10, 12, 14)
+        column.setSpacing(12)
         for group in section.get("groups", []):
             group_box = QGroupBox(group.get("title", "Inputs"))
+            # Avoid form controls running across an ultra-wide input canvas.
+            group_box.setMaximumWidth(780)
             form = QFormLayout(group_box)
+            form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
+            form.setHorizontalSpacing(16)
+            form.setVerticalSpacing(10)
             for field in group.get("fields", []):
                 key = field.get("key")
                 if not key:
@@ -549,6 +556,8 @@ class ModulePage(QWidget):
                 widget = self._field_widget(field, value)
                 label = QLabel(field.get("label", key))
                 label.setWordWrap(True)
+                label.setMinimumWidth(142)
+                label.setMaximumWidth(190)
                 unit = field.get("unit", "")
                 box = QWidget()
                 line = QHBoxLayout(box)
