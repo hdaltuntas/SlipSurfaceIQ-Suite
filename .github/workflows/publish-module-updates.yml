@@ -58,7 +58,7 @@ jobs:
             modules="$(git diff --name-only HEAD^ HEAD |
               awk -F/ '$1 == "slipsurface" && $3 == "app.json" {print $2}' |
               sort -u | tr '\n' ' ')"
-            # First publication of the workflow ships the already-bumped Rock v2026.0.1.
+            # When publication workflow itself changes, include the Rock module by default.
             if [[ -z "${modules// /}" ]]; then modules=rock; fi
           fi
           echo "modules=$modules" >> "$GITHUB_OUTPUT"
