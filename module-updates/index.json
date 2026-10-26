@@ -1,4 +1,11 @@
 {
+  "bearing": {
+    "changelog": "Bearing 2026.0.1: corrected zero lower bounds in engineering input fields.",
+    "requires_core": ">=0.1.0",
+    "sha256": "b89a692737362b4e113b52ac52443e17fe029fc524cb2afb06219e9ea6148087",
+    "url": "https://raw.githubusercontent.com/hdaltuntas/SlipSurfaceIQ-Suite/main/module-updates/bearing-2026.0.1.zip",
+    "version": "2026.0.1"
+  },
   "rock": {
     "changelog": "Rock Mass 2026.0.2: independent update-card verification; no numerical changes.",
     "requires_core": ">=0.1.0",
