@@ -136,3 +136,12 @@ The prior light/dark application chrome is replaced by one shared Nordic Dark
 QSS. See [Dark UI Spec v1](DARK_UI_SPEC_V1.md) for exact tokens, accessible
 focus/contrast rules, CAD and plot considerations, and staged acceptance.
 Report/PDF paper figures are independent of on-screen application chrome.
+
+## Engineering workbench C/D/E
+
+Input forms now use responsive `QFormLayout.WrapLongRows`, physical-unit labels,
+readable headers and horizontally scrollable tables. The results panel keeps
+engineering captions intact; the dark plot viewer fits the **original PNG** to
+the current workbench without changing saved reports or solver data.
+The headless screenshot workflow captures the ten default module screens and
+a calculated Bearing chart. See [Dark UI Spec v1](DARK_UI_SPEC_V1.md).
