@@ -77,8 +77,12 @@ class Field:
     def to_dict(self) -> dict:
         """Only what the browser needs; empty values are left out."""
         keep = ("key", "label", "kind", "default", "decimals")
+        # Explicit numeric bounds (especially 0) are validation metadata,
+        # not optional zero-valued defaults. Dropping min=0 allowed the
+        # native Qt spinbox to accept negative disturbance factors (D).
         return {k: v for k, v in asdict(self).items()
-                if k in keep or v not in ("", None, [], {}, 0.0)}
+                if k in keep or (k in ("min", "max") and v is not None)
+                or v not in ("", None, [], {}, 0.0)}
 
 
 @dataclass
