@@ -349,6 +349,10 @@ class ModulePage(QWidget):
         root.addWidget(self.header)
 
         work = QSplitter(Qt.Horizontal)
+        work.setObjectName("suiteEditorSplitter")
+        work.setChildrenCollapsible(False)
+        work.setHandleWidth(8)
+        self.work_splitter = work
         self.input_tabs = QTabWidget()
         self.input_tabs.setDocumentMode(True)
         self._build_input_tabs()
@@ -404,8 +408,11 @@ class ModulePage(QWidget):
         figure_layout.addWidget(scroll)
         right.addTab(plot_panel, "Grafikler" if language == "tr" else "Figures")
         work.addWidget(right)
-        work.setStretchFactor(0, 6)
-        work.setStretchFactor(1, 5)
+        # Let the graph/results pane use more space, while retaining
+        # a user-adjustable divider for the parameter editor.
+        work.setStretchFactor(0, 4)
+        work.setStretchFactor(1, 6)
+        work.setSizes([480, 720])
         root.addWidget(work, 1)
         self._update_visibility()
 
@@ -825,8 +832,8 @@ class MainWindow(QMainWindow):
 
         self.workspace = QWidget()
         workspace_layout = QVBoxLayout(self.workspace)
-        workspace_layout.setContentsMargins(9, 8, 9, 8)
-        workspace_layout.setSpacing(8)
+        workspace_layout.setContentsMargins(0, 0, 0, 0)
+        workspace_layout.setSpacing(0)
         navigation_frame = QFrame()
         navigation_frame.setObjectName("suiteWorkspaceToolbar")
         navigation_frame.setFixedHeight(54)
@@ -844,23 +851,35 @@ class MainWindow(QMainWindow):
         self.toolbar_brand.setObjectName("suiteToolbarBrand")
         navigation.addWidget(self.toolbar_brand)
         navigation.addSpacing(12)
-        self.back_button = QPushButton(
-            "‹  Tüm programlar" if language == "tr" else "‹  All applications"
-        )
+        self.back_button = QPushButton()
         self.back_button.setObjectName("suiteHomeBack")
         self.back_button.clicked.connect(self.show_home)
         navigation.addWidget(self.back_button)
         navigation.addStretch(1)
-        for caption, callback in (
-            ("Yeni" if language == "tr" else "New", self.new_project),
-            ("Aç" if language == "tr" else "Open", self.open_project),
-            ("Kaydet" if language == "tr" else "Save", self.save_project),
-            ("PDF", self.export_pdf),
+
+        # Persistent shortcuts: accessible from the launcher and every module.
+        self.theme_button = QPushButton()
+        self.theme_button.setObjectName("suiteThemeSwitch")
+        self.theme_button.clicked.connect(self.toggle_theme)
+        navigation.addWidget(self.theme_button)
+        self.language_button = QPushButton()
+        self.language_button.setObjectName("suiteLanguageSwitch")
+        self.language_button.clicked.connect(self.toggle_language)
+        navigation.addWidget(self.language_button)
+        navigation.addSpacing(12)
+        self.toolbar_actions = {}
+        for key, caption, callback in (
+            ("new", "Yeni" if language == "tr" else "New", self.new_project),
+            ("open", "Aç" if language == "tr" else "Open", self.open_project),
+            ("save", "Kaydet" if language == "tr" else "Save", self.save_project),
+            ("pdf", "PDF", self.export_pdf),
         ):
             button = QPushButton(caption)
+            button.setObjectName("suiteDocumentAction")
             button.clicked.connect(callback)
             navigation.addWidget(button)
-        workspace_layout.addWidget(navigation_frame)
+            self.toolbar_actions[key] = button
+        self._update_shell_labels()
 
         layout = QSplitter(Qt.Horizontal)
         self.navigator = QListWidget()
@@ -875,7 +894,15 @@ class MainWindow(QMainWindow):
         layout.setStretchFactor(1, 1)
         workspace_layout.addWidget(layout)
         self.stack.addWidget(self.workspace)
-        self.setCentralWidget(self.stack)
+        # A single global toolbar makes Home/Theme/Language reachable on all pages.
+        shell = QWidget()
+        shell_layout = QVBoxLayout(shell)
+        shell_layout.setContentsMargins(9, 8, 9, 8)
+        shell_layout.setSpacing(8)
+        shell_layout.addWidget(navigation_frame)
+        shell_layout.addWidget(self.stack, 1)
+        self.setCentralWidget(shell)
+        self.shell_header = navigation_frame
 
         self.set_theme(theme)
         self.show_home()
@@ -883,6 +910,7 @@ class MainWindow(QMainWindow):
             self.open_module(initial_app)
 
     def _create_actions(self):
+        self.menuBar().clear()
         file_menu = self.menuBar().addMenu("Dosya" if self.language == "tr" else "File")
         actions = [
             ("Yeni" if self.language == "tr" else "New", self.new_project, "Ctrl+N"),
@@ -910,10 +938,13 @@ class MainWindow(QMainWindow):
         theme_action = QAction(
             "Aydınlık / Karanlık" if self.language == "tr" else "Light / Dark", self
         )
-        theme_action.triggered.connect(
-            lambda: self.set_theme("dark" if self.theme == "light" else "light")
-        )
+        theme_action.triggered.connect(self.toggle_theme)
         view_menu.addAction(theme_action)
+        language_action = QAction(
+            "English / Türkçe" if self.language == "tr" else "Türkçe / English", self
+        )
+        language_action.triggered.connect(self.toggle_language)
+        view_menu.addAction(language_action)
 
         help_menu = self.menuBar().addMenu(
             "Yardım" if self.language == "tr" else "Help"
@@ -1157,6 +1188,7 @@ class MainWindow(QMainWindow):
     def set_theme(self, theme: str):
         self.theme = "dark" if theme == "dark" else "light"
         QApplication.instance().setStyleSheet(stylesheet(self.theme))
+        self._update_theme_button()
         for page in self.pages.values():
             if hasattr(page.session, "set_theme"):
                 page.session.set_theme(self.theme)
@@ -1197,7 +1229,8 @@ class MainWindow(QMainWindow):
                     f"{key}: {error}")
                 return
             self.pages[key] = page
-            self.view.addTab(page, module_icon(key), get(key).name)
+            name = get(key).tr if self.language == "tr" else get(key).name
+            self.view.addTab(page, module_icon(key), name)
         self.view.setCurrentWidget(self.pages[key])
         self.stack.setCurrentWidget(self.workspace)
         self.statusBar().showMessage(f"Module: {get(key).name}")
