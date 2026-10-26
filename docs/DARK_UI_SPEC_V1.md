@@ -1,6 +1,6 @@
 # SlipSurfaceIQ — Dark UI Spec v1.0
 
-Status: **Phases A–B implemented**, Phase C baseline styled, D–E to be verified/refined.
+Status: **Phases A–B merged; C/D engineering workspace improvements implemented and under CI validation; E visual/regression review in progress.**
 Reference: Nordic/KDE dark desktop example supplied for visual direction. 
 Runtime: **native Python/PySide6 only**. No QWebEngine, browser, Electron or light theme.
 
@@ -73,3 +73,29 @@ Contrast checks using WCAG relative luminance:
 - Native screenshot generator only produces `*-dark.png`; the older light screenshots, if
   present in repository history, are archival and no longer the active design.
 - App product version is independent from 10 module versions and the shared core ABI.
+
+
+## C–E engineering workbench implementation
+
+- Form rows wrap rather than overlap at narrow split widths. Labels have
+  contextual tooltips and physical unit labels use a consistent muted style.
+- Input table column widths are calibrated from field captions with horizontal
+  scroll for multi-column SPT/CPT/soil and structural grids. Internal engine
+  enum values and numeric serialization remain unchanged.
+- Result tables remain read-only; captions have full tooltip texts and column
+  widths no longer depend on a clipped last-column stretch.
+- Chart preview stores the **original full-resolution PNG** and paints it
+  proportional to the available viewport whenever resized. The canvas is dark,
+  preserving the analysis engine's own dark plot theme without artificially
+  recoloring legend/data pixels.
+- Direct ModulePage creations explicitly use the desktop's dark plotting
+  session, avoiding accidental light plots in plugin verification.
+- Screenshot script captures all ten dark workspaces and an **actual
+  calculated Bearing figure** (`native-pyside6-bearing-plot-dark.png`).
+- Print/PDF exporters, analysis engines and numerical benchmarks are unmodified.
+- Native Qt regressions verify cross-module form wrapping, original chart
+  resolution after resizing, table scroll behavior, summary tables and colors.
+
+**Evidence limit:** Passing offscreen Qt screenshot generation checks widget
+rendering and existence of plots, not subjective visual perfection on every
+Windows display scale. High-DPI and interactive inspection remain follow-up QA.
