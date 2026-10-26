@@ -1178,7 +1178,10 @@ class MainWindow(QMainWindow):
             if key in app_catalogue.keys()
             and app_catalogue.get(key).version == update.installed
         }
+        was_home = self.stack.currentWidget() is self.home
         self._replace_home()
+        if was_home:
+            self.show_home()
         count = len(self.available_updates)
         self.statusBar().showMessage(_say(
             self.language, f"{count} module update(s) available",
