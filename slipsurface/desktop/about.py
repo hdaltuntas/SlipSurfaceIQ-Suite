@@ -37,6 +37,7 @@ class AboutDialog(QDialog):
     def __init__(self, language: str = "tr", parent: QWidget | None = None):
         super().__init__(parent)
         self.language = language
+        self.link_color = "#91D9FF" if getattr(parent, "theme", "light") == "dark" else "#2155A3"
         self.setObjectName("suiteAboutDialog")
         self.setWindowTitle(_t(language, "SlipSurfaceIQ Hakkında", "About SlipSurfaceIQ"))
         self.resize(805, 605)
@@ -76,6 +77,9 @@ class AboutDialog(QDialog):
         overview = QTextBrowser()
         overview.setObjectName("suiteAboutOverview")
         overview.setOpenExternalLinks(True)
+        overview.document().setDefaultStyleSheet(
+            f"a {{ color: {self.link_color}; text-decoration: underline; }}"
+        )
         overview.setHtml(self._overview_html())
         self.overview = overview
         self.tabs.addTab(overview, _t(language, "Hakkında", "About"))
@@ -125,8 +129,8 @@ class AboutDialog(QDialog):
         self.library_table.horizontalHeader().setStretchLastSection(True)
         library_layout.addWidget(self.library_table)
         link = QLabel(
-            '<a href="https://github.com/hdaltuntas/SlipSurfaceIQ-Suite/blob/main/'
-            'THIRD_PARTY_NOTICES.md">'
+            f'<a style="color: {self.link_color};" href="https://github.com/'
+            'hdaltuntas/SlipSurfaceIQ-Suite/blob/main/THIRD_PARTY_NOTICES.md">'
             + _t(language, "Üçüncü taraf lisans bildirimleri",
                  "Third-party license notices") + "</a>"
         )
@@ -137,6 +141,9 @@ class AboutDialog(QDialog):
 
         outer.addWidget(self.tabs, 1)
         footer = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        close = footer.button(QDialogButtonBox.StandardButton.Close)
+        if close is not None:
+            close.setText(_t(language, "Kapat", "Close"))
         footer.rejected.connect(self.reject)
         outer.addWidget(footer)
         self.close_buttons = footer
