@@ -50,9 +50,11 @@ def publish(keys: list[str]) -> dict:
         index[key] = {
             "version": version,
             "changelog": (
-                "Rock Mass: Hoek–Brown D input range (0–1) corrected."
-                if key == "rock" and version == "2026.0.1"
-                else f"{key} {version} module update"
+                "Rock Mass 2026.0.2: independent update-card verification; no numerical changes."
+                if key == "rock" and version == "2026.0.2"
+                else ("Rock Mass 2026.0.1: Hoek–Brown D input range (0–1) corrected."
+                      if key == "rock" and version == "2026.0.1"
+                      else f"{key} {version} module update")
             ),
             "requires_core": manifest["requires_core"],
             "url": f"{PUBLIC_ROOT}/{archive.name}",
