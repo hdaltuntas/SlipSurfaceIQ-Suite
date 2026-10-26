@@ -13,9 +13,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from PySide6.QtWidgets import QApplication, QPushButton
 
 from slipsurface.apps import catalogue
+from slipsurface.desktop import updater
 from slipsurface.desktop.app import MainWindow
 from slipsurface.desktop.home import HomePage
-from slipsurface.desktop import updater
 
 
 def test_public_catalogue_maps_rock_to_a_card_update():
