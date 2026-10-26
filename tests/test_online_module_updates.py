@@ -35,6 +35,10 @@ def test_public_catalogue_maps_rock_to_a_card_update():
     updates = updater.check(index, apps=installed)
     assert set(updates) == {"rock"}
     assert updates["rock"].installed == "2026.0.1"
+    assert updates["rock"].latest == "2026.0.2"
+    # A freshly updated Suite already bundles Rock 2026.0.2 and must not
+    # present a redundant "Update" action.
+    assert updater.check(index) == {}
     _ = QApplication.instance() or QApplication([])
     home = HomePage("tr", updates)
     try:
