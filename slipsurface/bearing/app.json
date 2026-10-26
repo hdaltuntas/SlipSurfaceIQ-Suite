@@ -5,7 +5,7 @@
   "group": "Foundations",
   "description": "Shallow foundation bearing capacity",
   "description_tr": "Sığ temeller için taşıma gücü ve güvenlik kontrolleri.",
-  "version": "2026.0.0",
+  "version": "2026.0.1",
   "requires_core": ">=0.1.0",
   "order": 3,
   "session": "slipsurface.bearing.web.session"
