@@ -56,7 +56,8 @@ jobs:
             modules="$MODULE_INPUT"
           else
             modules="$(git diff --name-only HEAD^ HEAD |
-              sed -n 's@^slipsurface/\\([^/]*\\)/app.json$@\\1@p' | sort -u | tr '\n' ' ')"
+              awk -F/ '$1 == "slipsurface" && $3 == "app.json" {print $2}' |
+              sort -u | tr '\n' ' ')"
             # First publication of the workflow ships the already-bumped Rock v2026.0.1.
             if [[ -z "${modules// /}" ]]; then modules=rock; fi
           fi
