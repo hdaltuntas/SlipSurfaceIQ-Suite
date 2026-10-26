@@ -14,7 +14,6 @@ from slipsurface.desktop.app import ModulePage
 from slipsurface.desktop.home import HomePage
 from slipsurface.desktop.updater import check
 
-
 ZERO_BOUND_FIELDS = ("Ks", "adhesion_ratio", "spread_angle", "kh", "N60")
 
 
