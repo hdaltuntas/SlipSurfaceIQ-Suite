@@ -239,6 +239,36 @@ QFrame#suiteResultTablePanel {
 }
 QLabel#suiteResultTableTitle { color: #C2CCD9; font-weight: 650; }
 
+/* Data-first editing and display. The plot PNG is painted without recoloring
+   its scientific legends; the dark panel is not an image filter. */
+QWidget#suitePlotPanel, QScrollArea#suitePlotScroll {
+    background: #303744;
+}
+QLabel#suitePlotCanvas {
+    background: #262D39; color: #C2CCD9;
+    border: 1px solid #586676; border-radius: 8px;
+    padding: 8px;
+}
+QTextEdit#suiteResultDetails {
+    background: #262D39; color: #EDF1F7;
+    border: 1px solid #586676; padding: 12px;
+    selection-background-color: #385960;
+}
+QScrollArea#suiteResultsScroll { background: #2B303B; }
+QWidget#suiteResultsOverview { background: #2B303B; }
+QTableWidget#suiteResultTable {
+    background: #303744; alternate-background-color: #363E4D;
+    gridline-color: #586676;
+}
+QPushButton#suiteAddRow, QPushButton#suiteDuplicateRow {
+    background: #414B5D; color: #EDF1F7;
+}
+QPushButton#suiteRemoveRow {
+    background: #493C43; border: 1px solid #996977; color: #F5DDE1;
+}
+QPushButton#suiteRemoveRow:hover { background: #594650; }
+QLabel#suiteFieldUnit { color: #C2CCD9; background: transparent; }
+
 /* About dialog shares one dark surface; licenses and links stay readable. */
 QDialog#suiteAboutDialog { background: #2B303B; }
 QFrame#suiteAboutHero {

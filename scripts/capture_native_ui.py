@@ -65,6 +65,16 @@ def capture() -> None:
             _capture(window, output / "modules", f"{module.key}-{theme}.png", app)
             if module.key == "bearing":
                 _capture(window, output, f"native-pyside6-bearing-{theme}.png", app)
+                # Verify a genuine calculated chart on the dark workbench,
+                # not just an empty default results placeholder.
+                result = page.session.analyse(page.current_values())
+                if result.get("ok") is not True:
+                    raise RuntimeError("Bearing chart smoke analysis failed")
+                page._on_analysis_finished(result, None)
+                if page.plot_label.pixmap().isNull():
+                    raise RuntimeError("Bearing analysis did not render a figure")
+                page.work_splitter.widget(1).setCurrentIndex(2)
+                _capture(window, output, "native-pyside6-bearing-plot-dark.png", app)
             window.show_home()
         window.close()
         app.processEvents()

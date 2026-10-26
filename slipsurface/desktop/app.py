@@ -14,8 +14,8 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, Signal
-from PySide6.QtGui import QAction, QPixmap
+from PySide6.QtCore import QObject, QRunnable, QSize, Qt, QThreadPool, QTimer, Signal
+from PySide6.QtGui import QAction, QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
     QCheckBox,
@@ -35,6 +35,7 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QScrollArea,
+    QSizePolicy,
     QSplitter,
     QStackedWidget,
     QTableWidget,
@@ -173,10 +174,27 @@ class DataTable(QWidget):
         self.table.setHorizontalHeaderLabels([
             str(c.get("label", c.get("key", ""))) for c in self.columns
         ])
-        self.table.horizontalHeader().setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
-        self.table.horizontalHeader().setStretchLastSection(True)
+        header = self.table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Interactive)
+        header.setStretchLastSection(False)
+        header.setDefaultSectionSize(118)
+        header.setMinimumSectionSize(70)
+        for position, column in enumerate(self.columns):
+            label = str(column.get("label", column.get("key", "")))
+            # Keep full engineering column titles legible without forcing the
+            # entire editor pane wider than the splitter; allow horizontal scroll.
+            width = max(90, min(235, len(label) * 7 + 34))
+            if column.get("kind") == "select":
+                width = max(155, width)
+            header.resizeSection(position, width)
+            item = self.table.horizontalHeaderItem(position)
+            if item is not None:
+                item.setToolTip(label)
         self.table.verticalHeader().setVisible(True)
+        self.table.verticalHeader().setDefaultSectionSize(34)
         self.table.setAlternatingRowColors(True)
+        self.table.setWordWrap(False)
+        self.table.setHorizontalScrollMode(QTableWidget.ScrollMode.ScrollPerPixel)
         self.table.setMinimumHeight(245)
 
         add = QPushButton("+ Satır" if language == "tr" else "+ Row")
@@ -196,6 +214,7 @@ class DataTable(QWidget):
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(9, 8, 9, 8)
+        layout.setSpacing(9)
         note = specification.get("note")
         if note:
             label = QLabel(str(note))
@@ -296,6 +315,59 @@ class DataTable(QWidget):
         return result
 
 
+class FigurePreview(QLabel):
+    """Aspect-preserving engineering image viewer inside the dark workspace.
+
+    The raster is not modified. PDF/report output remains handled by the
+    module's own report engine, not by the on-screen viewer.
+    """
+
+    def __init__(self, placeholder: str, parent=None):
+        super().__init__(placeholder, parent)
+        self.setObjectName("suitePlotCanvas")
+        self.setAlignment(Qt.AlignCenter)
+        self.setWordWrap(True)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self._source_pixmap = QPixmap()
+
+    def sizeHint(self) -> QSize:
+        return QSize(420, 330)
+
+    def pixmap(self) -> QPixmap:
+        return QPixmap(self._source_pixmap)
+
+    def setPixmap(self, pixmap: QPixmap) -> None:
+        self._source_pixmap = QPixmap(pixmap)
+        # Clear placeholder without letting QLabel's intrinsic pixmap size
+        # force unwanted horizontal scrolling on a narrow results panel.
+        super().setText("")
+        self.update()
+
+    def setText(self, text: str) -> None:
+        self._source_pixmap = QPixmap()
+        super().setText(text)
+        self.update()
+
+    def paintEvent(self, event) -> None:
+        if self._source_pixmap.isNull():
+            super().paintEvent(event)
+            return
+        painter = QPainter(self)
+        painter.fillRect(self.rect(), QColor("#262D39"))
+        painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+        usable = self.contentsRect().adjusted(12, 12, -12, -12)
+        if usable.width() > 0 and usable.height() > 0:
+            image_size = self._source_pixmap.size()
+            image_size.scale(usable.size(), Qt.AspectRatioMode.KeepAspectRatio)
+            origin_x = usable.x() + (usable.width() - image_size.width()) // 2
+            origin_y = usable.y() + (usable.height() - image_size.height()) // 2
+            painter.drawPixmap(origin_x, origin_y, self._source_pixmap.scaled(
+                image_size, Qt.AspectRatioMode.KeepAspectRatio,
+                Qt.TransformationMode.SmoothTransformation
+            ))
+        painter.end()
+
+
 class ModulePage(QWidget):
     """One analysis module and its editable state in the shared main window."""
 
@@ -331,6 +403,11 @@ class ModulePage(QWidget):
         self._plot_target = "analysis"
         self._pending_plot_target = "analysis"
         self.profile = profile(key)
+        # A direct ModulePage instantiation (e.g. plugin verification) must
+        # render graphs in the single desktop theme, not the engine's legacy
+        # default light figure palette.
+        if hasattr(self.session, "set_theme"):
+            self.session.set_theme("dark")
 
         root = QVBoxLayout(self)
         root.setContentsMargins(10, 9, 10, 9)
@@ -374,20 +451,27 @@ class ModulePage(QWidget):
         self._update_section_hint()
         if self.mode is not None:
             self.mode.currentTextChanged.connect(self._mode_changed)
+        input_pane.setMinimumWidth(310)
         work.addWidget(input_pane)
 
         right = QTabWidget()
+        right.setMinimumWidth(320)
         self.overview = ResultsPanel(language)
         right.addTab(self.overview, "Özet" if language == "tr" else "Summary")
         self.result_text = QTextEdit()
+        self.result_text.setObjectName("suiteResultDetails")
         self.result_text.setReadOnly(True)
+        self.result_text.setLineWrapMode(QTextEdit.LineWrapMode.WidgetWidth)
         self.result_text.setPlaceholderText(
             "Hesaplama çıktıları bu panelde görüntülenir." if language == "tr"
             else "Analysis results will appear here."
         )
         right.addTab(self.result_text, "Ayrıntılar" if language == "tr" else "Details")
         plot_panel = QWidget()
+        plot_panel.setObjectName("suitePlotPanel")
         figure_layout = QVBoxLayout(plot_panel)
+        figure_layout.setContentsMargins(10, 12, 10, 10)
+        figure_layout.setSpacing(10)
         figure_bar = QHBoxLayout()
         self.figure_choice = QComboBox()
         self.figure_choice.currentIndexChanged.connect(self.refresh_plot)
@@ -397,13 +481,15 @@ class ModulePage(QWidget):
         figure_bar.addWidget(plot_button)
         figure_layout.addLayout(figure_bar)
         scroll = QScrollArea()
+        scroll.setObjectName("suitePlotScroll")
         scroll.setWidgetResizable(True)
-        self.plot_label = QLabel(
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.plot_label = FigurePreview(
             "Grafik oluşturmak için analizi çalıştırın."
             if language == "tr" else "Run an analysis to see figures."
         )
         self.plot_label.setAlignment(Qt.AlignCenter)
-        self.plot_label.setMinimumHeight(400)
+        self.plot_label.setMinimumHeight(350)
         scroll.setWidget(self.plot_label)
         figure_layout.addWidget(scroll)
         right.addTab(plot_panel, "Grafikler" if language == "tr" else "Figures")
@@ -543,10 +629,12 @@ class ModulePage(QWidget):
         for group in section.get("groups", []):
             group_box = QGroupBox(group.get("title", "Inputs"))
             # Avoid form controls running across an ultra-wide input canvas.
-            group_box.setMaximumWidth(780)
+            group_box.setMaximumWidth(710)
             form = QFormLayout(group_box)
+            form.setRowWrapPolicy(QFormLayout.RowWrapPolicy.WrapLongRows)
+            form.setFieldGrowthPolicy(QFormLayout.FieldGrowthPolicy.AllNonFixedFieldsGrow)
             form.setLabelAlignment(Qt.AlignLeft | Qt.AlignVCenter)
-            form.setHorizontalSpacing(16)
+            form.setHorizontalSpacing(12)
             form.setVerticalSpacing(10)
             for field in group.get("fields", []):
                 key = field.get("key")
@@ -556,15 +644,19 @@ class ModulePage(QWidget):
                 widget = self._field_widget(field, value)
                 label = QLabel(field.get("label", key))
                 label.setWordWrap(True)
-                label.setMinimumWidth(142)
-                label.setMaximumWidth(190)
+                label.setMinimumWidth(128)
+                label.setMaximumWidth(185)
+                label.setToolTip(str(field.get("label", key)))
                 unit = field.get("unit", "")
                 box = QWidget()
                 line = QHBoxLayout(box)
                 line.setContentsMargins(0, 0, 0, 0)
+                line.setSpacing(7)
                 line.addWidget(widget, 1)
                 if unit:
-                    line.addWidget(QLabel(str(unit)))
+                    unit_label = QLabel(str(unit))
+                    unit_label.setObjectName("suiteFieldUnit")
+                    line.addWidget(unit_label)
                 form.addRow(label, box)
                 self.fields.setdefault(key, []).append((widget, name))
                 self.conditional.append((label, box, field))
@@ -772,8 +864,9 @@ class ModulePage(QWidget):
             if not pixmap.loadFromData(data, "PNG"):
                 raise ValueError(_say(self.language, "Invalid PNG returned from analysis",
                                        "Analizden geçersiz PNG döndü"))
-            self.plot_label.setPixmap(pixmap.scaledToWidth(min(1000, pixmap.width()),
-                                                           Qt.SmoothTransformation))
+            # Keep the original figure, not a resized copy: reflow at paint
+            # time after splitter moves or window resizing, without blur/crop.
+            self.plot_label.setPixmap(pixmap)
         except Exception as error:
             LOG.exception("Unable to draw figure")
             self.plot_label.setText(str(error))
