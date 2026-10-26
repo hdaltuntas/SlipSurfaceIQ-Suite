@@ -75,8 +75,12 @@ class Field:
     def to_dict(self) -> dict:
         """Only what the browser needs; empty values are left out."""
         keep = ("key", "label", "kind", "default", "decimals")
+        # Explicit numeric bounds are validation metadata. In particular,
+        # min=0 must survive schema serialization or the native Qt editor
+        # falls back to -1e12 and accepts invalid negative engineering inputs.
         return {k: v for k, v in asdict(self).items()
-                if k in keep or v not in ("", None, [], 0.0)}
+                if k in keep or (k in ("min", "max") and v is not None)
+                or v not in ("", None, [], 0.0)}
 
 
 @dataclass
