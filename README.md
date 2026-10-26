@@ -60,8 +60,9 @@ General Public License, Version 3 only (AGPL-3.0-only)**. See [LICENSE](LICENSE)
 Third-party dependencies retain their separate licenses.
 
 The Suite application and nine engineering modules use version **2026.0.0**.
-The **Rock Mass (Kaya Kütlesi)** module independently uses **2026.0.1**, incorporating
-the corrected input bounds for the Hoek–Brown disturbance factor D. The separate
+The **Rock Mass (Kaya Kütlesi)** module independently uses **2026.0.2**.
+This release tests per-module card updates from **2026.0.1**; it includes the
+previous Hoek–Brown D input validation correction, with no new numerical changes. The separate
 `CORE_VERSION` compatibility contract remains at `0.1.0`.
 
 The native desktop **Help / Yardım → About / Hakkında** dialog displays
