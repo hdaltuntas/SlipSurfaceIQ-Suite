@@ -114,3 +114,27 @@ def test_async_update_result_refreshes_cards_without_leaving_home():
         assert window.check_updates_button.isEnabled()
     finally:
         window.close()
+
+
+def test_publisher_outputs_immutable_module_only_archive_and_sha256(tmp_path, monkeypatch):
+    import hashlib
+    import zipfile
+
+    from scripts import publish_module_updates as publisher
+
+    monkeypatch.setattr(publisher, "PUBLISHED", tmp_path / "updates")
+    entries = publisher.publish(["rock"])
+    entry = entries["rock"]
+    assert entry["version"] == "2026.0.1"
+    assert entry["requires_core"] == ">=0.1.0"
+    archive = publisher.PUBLISHED / "rock-2026.0.1.zip"
+    assert archive.is_file()
+    raw = archive.read_bytes()
+    assert entry["sha256"] == hashlib.sha256(raw).hexdigest()
+    with zipfile.ZipFile(archive) as z:
+        assert "rock-2026.0.1/app.json" in z.namelist()
+        assert "rock-2026.0.1/slipsurface_rock/web/session.py" in z.namelist()
+    index = json.loads((publisher.PUBLISHED / "index.json").read_text(encoding="utf-8"))
+    assert index["rock"] == entry
+    assert publisher.publish(["rock"])["rock"]["sha256"] == entry["sha256"]
+    assert archive.read_bytes() == raw
