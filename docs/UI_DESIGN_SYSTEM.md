@@ -32,6 +32,26 @@ mode; high-contrast dark blue surfaces for dark mode. Buttons have explicit hove
 keyboard focus and disabled states. Engineering charts are produced by the
 existing Matplotlib engines, not replaced by decorative graphics.
 
+## Persistent application shell (2026)
+
+The native **Home / Ana Sayfa**, **Theme / Tema**, and **Language / Dil**
+buttons now stay visible on the same header across the launcher and every
+engineering module. Theme switches between the existing light and dark QSS
+without resetting forms. Language switches between Turkish and English and
+relocalizes the launcher, module headers, form schemas, menus and navigation.
+
+Language switching rebuilds the Qt form widgets while retaining the existing
+engineering session objects, entered inputs, analysis results, plots and PDF
+report capability. Running analyses or module updates block the switch so the
+background task cannot be orphaned. Results that were computed before changing
+the language remain in their original calculation language until recomputed.
+
+The form editor/plot splitter begins at a **40/60** allocation rather than
+giving the widest pane to a form with few fields. Users can still drag the
+divider. Form groups have a maximum width and less cramped label columns, so
+small parameter sets no longer spread across the full canvas. The numerical
+engines and project formats are unchanged.
+
 ## Program icon semantics
 
 | Key | SVG symbol |
