@@ -14,7 +14,7 @@ import logging
 import os
 import sys
 
-from PySide6.QtCore import QObject, QRunnable, Qt, QThreadPool, QTimer, QSize, Signal
+from PySide6.QtCore import QObject, QRunnable, QSize, Qt, QThreadPool, QTimer, Signal
 from PySide6.QtGui import QAction, QColor, QPainter, QPixmap
 from PySide6.QtWidgets import (
     QApplication,
