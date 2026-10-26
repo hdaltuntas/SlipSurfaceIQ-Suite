@@ -53,7 +53,9 @@ def publish(keys: list[str]) -> dict:
         index[key] = {
             "version": version,
             "changelog": (
-                "Rock Mass 2026.0.2: independent update-card verification; no numerical changes."
+                "Bearing 2026.0.1: corrected zero lower bounds in engineering input fields."
+                if key == "bearing" and version == "2026.0.1"
+                else "Rock Mass 2026.0.2: independent update-card verification; no numerical changes."
                 if key == "rock" and version == "2026.0.2"
                 else ("Rock Mass 2026.0.1: Hoek–Brown D input range (0–1) corrected."
                       if key == "rock" and version == "2026.0.1"
