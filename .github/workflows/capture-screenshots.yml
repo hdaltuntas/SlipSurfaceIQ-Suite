@@ -11,6 +11,8 @@ on:
       - "slipsurface/desktop/brand.py"
       - "slipsurface/desktop/splash.py"
       - "slipsurface/desktop/theme.py"
+      - "slipsurface/desktop/about.py"
+      - "slipsurface/desktop/third_party.py"
       - ".github/workflows/capture-screenshots.yml"
 
 concurrency:
@@ -46,6 +48,7 @@ jobs:
           git add docs/screenshots/native-pyside6-bearing-light.png docs/screenshots/native-pyside6-bearing-dark.png
           git add docs/screenshots/modules
           git add docs/screenshots/brand-splash.png
+          git add docs/screenshots/native-pyside6-about-light.png docs/screenshots/native-pyside6-about-dark.png
           if ! git diff --cached --quiet; then
             git commit -m "docs: capture home and module PySide6 screenshots [skip ci]"
             git pull --rebase origin main

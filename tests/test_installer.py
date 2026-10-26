@@ -153,7 +153,7 @@ def test_install_rejects_unsafe_archive_paths(tmp_path):
 def test_updater_carries_the_download_url():
     updates = check({
         "pile": {"version": "2026.0.1", "url": "https://example.com/pile-2026.0.1.zip"},
-        "rock": "1.1.0",
+        "rock": "2026.0.1",
     })
     assert updates["pile"].url == "https://example.com/pile-2026.0.1.zip"
     assert updates["rock"].url == ""

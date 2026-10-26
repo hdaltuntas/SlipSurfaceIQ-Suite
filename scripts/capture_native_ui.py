@@ -12,6 +12,7 @@ os.environ.setdefault("MPLBACKEND", "Agg")
 from PySide6.QtWidgets import QApplication
 
 from slipsurface.apps import APPS
+from slipsurface.desktop.about import AboutDialog
 from slipsurface.desktop.app import MainWindow
 from slipsurface.desktop.splash import BrandSplash
 
@@ -43,6 +44,12 @@ def capture() -> None:
         if window.current_page() is not None or len(window.home.cards) != len(APPS):
             raise RuntimeError("Home dashboard did not load")
         _capture(window, output, f"native-pyside6-home-{theme}.png", app)
+
+        # The About window is a native, bilingual dialog with license credits.
+        about = AboutDialog(language="tr", parent=window)
+        about.show()
+        _capture(about, output, f"native-pyside6-about-{theme}.png", app)
+        about.close()
 
         for module in APPS:
             window.open_module(module.key)
