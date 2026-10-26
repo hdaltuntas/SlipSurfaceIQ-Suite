@@ -37,7 +37,7 @@ class AboutDialog(QDialog):
     def __init__(self, language: str = "tr", parent: QWidget | None = None):
         super().__init__(parent)
         self.language = language
-        self.link_color = "#91D9FF" if getattr(parent, "theme", "light") == "dark" else "#2155A3"
+        self.link_color = "#8FC9C3"  # Single Nordic Dark theme; readable on every panel.
         self.setObjectName("suiteAboutDialog")
         self.setWindowTitle(_t(language, "SlipSurfaceIQ Hakkında", "About SlipSurfaceIQ"))
         self.resize(805, 605)
