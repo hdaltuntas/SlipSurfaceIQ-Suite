@@ -654,7 +654,9 @@ class ModulePage(QWidget):
                 line.setSpacing(7)
                 line.addWidget(widget, 1)
                 if unit:
-                    line.addWidget(QLabel(str(unit)))
+                    unit_label = QLabel(str(unit))
+                    unit_label.setObjectName("suiteFieldUnit")
+                    line.addWidget(unit_label)
                 form.addRow(label, box)
                 self.fields.setdefault(key, []).append((widget, name))
                 self.conditional.append((label, box, field))
